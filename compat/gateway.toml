@@ -1,3 +1,3 @@
-# Public OSS source candidate; push this commit before enabling native CI.
+# Standalone OSS source; its repository remains private during qualification.
 repository = "https://github.com/sparksq/sparkroute.git"
 commit = "7754a3840b42906f3d726b2f84a299bf77e970d5"

@@ -36,7 +36,28 @@ jobs:
         run: python scripts/prepare-ci-host.py
       - name: Install host and plugin
         run: uv pip install --system -e .dev/sparkrun-with-sparkroute -e . --group dev
+      - name: Read pinned gateway source
+        id: gateway
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+          pin = tomllib.loads(Path('compat/gateway.toml').read_text())
+          repository = pin['repository'].removeprefix('https://github.com/').removesuffix('.git')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write('repository=' + repository + '\ncommit=' + pin['commit'] + '\n')
+          PY
+      - name: Check out the pinned private gateway source
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ steps.gateway.outputs.repository }}
+          ref: ${{ steps.gateway.outputs.commit }}
+          path: .dev/ci-gateway
+          ssh-key: ${{ secrets.SPARKROUTE_CI_SSH_KEY }}
+          persist-credentials: false
       - name: Build the pinned OSS gateway
-        run: python scripts/prepare-ci-gateway.py
+        run: python scripts/prepare-ci-gateway.py --source .dev/ci-gateway
       - name: Qualify process probes and the real gateway integration
         run: python -m pytest -v tests/test_sparkroute_live.py .dev/sparkrun-with-sparkroute/tests/test_process_probe.py

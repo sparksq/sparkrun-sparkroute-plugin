@@ -112,3 +112,15 @@ def test_native_controls_cover_every_release_platform_and_gate_publication():
     assert "scripts/prepare-ci-host.py" in commands
     assert "scripts/prepare-ci-gateway.py" in commands
     assert "tests/test_sparkroute_live.py" in commands
+
+
+def test_private_gateway_checkout_uses_scoped_credentials_and_the_catalog_pin():
+    steps = _workflow("native-controls.yml")["jobs"]["control"]["steps"]
+    checkout = next(step for step in steps if step.get("with", {}).get("path") == ".dev/ci-gateway")
+    assert checkout["with"]["repository"] == "${{ steps.gateway.outputs.repository }}"
+    assert checkout["with"]["ref"] == "${{ steps.gateway.outputs.commit }}"
+    assert checkout["with"]["ssh-key"] == "${{ secrets.SPARKROUTE_CI_SSH_KEY }}"
+    assert checkout["with"]["persist-credentials"] == "false"
+    commands = [step.get("run", "") for step in steps]
+    assert "python scripts/prepare-ci-gateway.py --source .dev/ci-gateway" in commands
+    assert any("compat/gateway.toml" in command for command in commands)
