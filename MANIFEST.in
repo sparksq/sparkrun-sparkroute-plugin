@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 include .pre-commit-config.yaml
+include .gitattributes
 include DEV_PREVIEW.md
 include dev.sh
 include plugin.toml

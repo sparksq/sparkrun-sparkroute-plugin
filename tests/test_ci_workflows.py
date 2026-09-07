@@ -43,6 +43,7 @@ def test_repo_tools_shims_and_generated_workflows_use_the_catalog_pin():
 def test_sdist_manifest_includes_the_support_files_needed_to_run_its_tests():
     manifest = set((ROOT / "MANIFEST.in").read_text(encoding="utf-8").splitlines())
     assert {
+        "include .gitattributes",
         "include DEV_PREVIEW.md",
         "recursive-include scripts *.py",
         "recursive-include tests *.py",
