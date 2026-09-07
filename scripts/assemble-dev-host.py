@@ -79,7 +79,7 @@ def _apply_host_seams(host: Path, plugin_root: Path) -> None:
     # parent repository and interpreting paths relative to that checkout.
     try:
         for command in (["init", "--quiet"], ["apply", "--check", str(patch)], ["apply", str(patch)]):
-            subprocess.run(["git", "-C", str(host), *command], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(host), "-c", "core.autocrlf=false", *command], check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as error:
         raise AssemblyError(
             "host compatibility patch does not apply; select the commit in compat/host.toml "

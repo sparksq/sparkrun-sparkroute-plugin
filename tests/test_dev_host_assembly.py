@@ -102,3 +102,28 @@ def test_assembly_does_not_duplicate_an_upstream_binding(tmp_path: Path):
     assert loader.count("gateway.sparkroute") == 1
     assert "BEGIN sparkrun-sparkroute development binding" not in features
     assert "BEGIN sparkrun-sparkroute development binding" not in loader
+
+
+def test_host_patch_preserves_lf_with_windows_git_defaults(tmp_path: Path, monkeypatch):
+    host, plugin = tmp_path / "host", tmp_path / "plugin"
+    _write_host(host)
+    _write_plugin(plugin)
+    (host / "sample.txt").write_bytes(b"before\n")
+    patch = plugin / "compat/sparkrun-host-seams.patch"
+    patch.parent.mkdir()
+    patch.write_bytes(b"--- a/sample.txt\n+++ b/sample.txt\n@@ -1 +1 @@\n-before\n+after\n")
+    (plugin / ".gitattributes").write_bytes((ROOT / ".gitattributes").read_bytes())
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", "core.autocrlf")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", "true")
+    subprocess.run(["git", "init", "--quiet", str(plugin)], check=True)
+    subprocess.run(["git", "-C", str(plugin), "add", ".gitattributes", "compat"], check=True)
+    patch.unlink()
+    subprocess.run(["git", "-C", str(plugin), "checkout", "--", "compat"], check=True)
+    assert b"\r\n" not in patch.read_bytes()
+
+    result = _assemble(host, plugin)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (plugin / ".dev/sparkrun-with-sparkroute/sample.txt").read_bytes() == b"after\n"
+    assert (host / "sample.txt").read_bytes() == b"before\n"
