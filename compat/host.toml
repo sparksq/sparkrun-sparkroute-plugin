@@ -1,0 +1,5 @@
+# The development assembly applies host-seams.patch only when these generic
+# hooks are absent. The original checkout is never changed.
+repository = "https://github.com/spark-arena/sparkrun.git"
+commit = "44bd24af4e885d31e9ecff0d9e1a2921f9e6fdec"
+patch = "sparkrun-host-seams.patch"
