@@ -38,7 +38,18 @@ def _development_tree(tmp_path: Path) -> tuple[Path, Path, dict[str, str]]:
 
     venv_bin = plugin / ".venv" / "bin"
     sparkrun_log = tmp_path / "sparkrun.log"
-    _executable(venv_bin / "python", "exit 0\n")
+    gateway = plugin / ".dev" / "sparkroute-test-binary"
+    _executable(gateway, "exit 0\n")
+    _executable(
+        venv_bin / "python",
+        """if [[ "$1" == *prepare-dev-gateway.py ]]; then
+    printf 'prepare\\n' >> "$FAKE_GATEWAY_LOG"
+    if [[ "${FAKE_GATEWAY_STATUS:-0}" != 0 ]]; then exit "$FAKE_GATEWAY_STATUS"; fi
+    printf '%s\\n' "$FAKE_GATEWAY_BINARY"
+fi
+exit 0
+""",
+    )
     _executable(venv_bin / "pre-commit", "exit 0\n")
     _executable(
         venv_bin / "sparkrun",
@@ -67,7 +78,19 @@ exit 0
         "FAKE_GIT_LOG": str(git_log),
         "FAKE_GIT_ORIGIN": REPOSITORY,
         "FAKE_SPARKRUN_LOG": str(sparkrun_log),
+        "FAKE_GATEWAY_LOG": str(tmp_path / "gateway.log"),
+        "FAKE_GATEWAY_BINARY": str(gateway),
     }
+    for name in (
+        "SPARKRUN_CHECKOUT",
+        "SPARKRUN_BRANCH",
+        "_SPARKRUN_SPARKROUTE_MANAGED_CHECKOUT",
+        "SPARKRUN_SPARKROUTE_BINARY",
+        "_SPARKRUN_SPARKROUTE_MANAGED_BINARY",
+        "SPARKRUN_FOXSCI_ROUTE_BINARY",
+        "SPARKRUN_LLM_GATEWAY_BINARY",
+    ):
+        env.pop(name, None)
     return plugin, git_log, env
 
 
@@ -88,6 +111,7 @@ source "$PLUGIN_ROOT/dev.sh"
 printf 'checkout=%s\\nbranch=%s\\nmarker=%s\\n' \\
     "$SPARKRUN_CHECKOUT" "$SPARKRUN_BRANCH" "$_SPARKRUN_SPARKROUTE_MANAGED_CHECKOUT"
 printf 'dev_checkout=%s\\n' "$SPARKRUN_DEV_CHECKOUT"
+printf 'binary=%s\\n' "$SPARKRUN_SPARKROUTE_BINARY"
 """,
         ],
         check=False,
@@ -104,6 +128,8 @@ printf 'dev_checkout=%s\\n' "$SPARKRUN_DEV_CHECKOUT"
     assert "checkout=%s" % (plugin / ".dev" / "sparkrun") in result.stdout
     assert "marker=%s" % (plugin / ".dev" / "sparkrun") in result.stdout
     assert "dev_checkout=%s" % (plugin / ".dev" / "sparkrun-with-sparkroute") in result.stdout
+    assert "binary=" + env["FAKE_GATEWAY_BINARY"] in result.stdout
+    assert Path(env["FAKE_GATEWAY_LOG"]).read_text().splitlines() == ["prepare", "prepare"]
     calls = git_log.read_text(encoding="utf-8")
     assert "fetch --prune origin main" in calls
     assert "fetch --prune origin develop-next" in calls
@@ -197,3 +223,29 @@ def test_copied_assembly_preserves_source_and_does_not_require_symlinks(tmp_path
     (assembled / "__init__.py").write_text("# copied only\n")
     assert (plugin_source / "__init__.py").read_text() == "VERSION = 'test'\n"
     assert not (host / "src/sparkrun/plugins/sparkroute").exists()
+
+
+def test_explicit_binary_skips_preparation(tmp_path):
+    plugin, _, env = _development_tree(tmp_path)
+    result = subprocess.run(
+        ["bash", "-c", 'source "$PLUGIN_ROOT/dev.sh"'],
+        capture_output=True,
+        text=True,
+        env={**env, "PLUGIN_ROOT": str(plugin), "SPARKRUN_SPARKROUTE_BINARY": env["FAKE_GATEWAY_BINARY"]},
+    )
+    assert result.returncode == 0, result.stderr
+    assert "Using explicit SparkRoute development binary" in result.stdout
+    assert not Path(env["FAKE_GATEWAY_LOG"]).exists()
+
+
+def test_binary_preparation_failure_does_not_report_success(tmp_path):
+    plugin, _, env = _development_tree(tmp_path)
+    result = subprocess.run(
+        ["bash", "-c", 'source "$PLUGIN_ROOT/dev.sh"'],
+        capture_output=True,
+        text=True,
+        env={**env, "PLUGIN_ROOT": str(plugin), "FAKE_GATEWAY_STATUS": "17"},
+    )
+    assert result.returncode != 0
+    assert "Done." not in result.stdout
+    assert not Path(env["FAKE_SPARKRUN_LOG"]).exists()

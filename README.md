@@ -26,8 +26,9 @@ sparkrun proxy ui
 
 The initial extraction is a source-development preview. The default gateway
 version is recorded in `versions.yaml`, but verified public release archive
-digests must be added before normal binary acquisition can succeed. See
-[DEV_PREVIEW.md](DEV_PREVIEW.md) for local binary setup.
+digests must be added before normal binary acquisition can succeed. `dev.sh`
+prepares a separate development binary, including while the repository is
+private. See [DEV_PREVIEW.md](DEV_PREVIEW.md) for acquisition and build controls.
 
 Use a local SparkRun checkout without modifying it:
 
@@ -52,11 +53,25 @@ released, use the commit in `compat/host.toml` or the integration host branch.
 Setup also updates recipe registries and installs local pre-commit hooks, as
 in the ColdSnap plugin workflow.
 
+Gateway setup reuses a checked development cache, then tries GitHub release
+assets and successful Actions distributions for the exact `compat/gateway.toml`
+commit using your existing `gh` authentication. If none are available, it builds
+that commit in Docker using the Go version in the source's `go.mod`, with local
+Go as a fallback. Docker builds target the controller's OS and architecture.
+Setup exports `SPARKRUN_SPARKROUTE_BINARY`; a binary you explicitly set takes
+precedence. No GitHub credentials are forwarded into the build container.
+
 On Windows, run `python scripts/assemble-dev-host.py --host C:/path/to/sparkrun
 --destination .dev/sparkrun-with-sparkroute` followed by installation into your
 Python environment. The assembler copies plugin source on Windows so it does
 not require symlink privileges; rerun it after edits. `dev.sh` is the POSIX shell
 convenience entry point.
+After installing the packages on Windows, use PowerShell to prepare the gateway:
+
+```powershell
+$env:SPARKRUN_SPARKROUTE_BINARY = python scripts/prepare-dev-gateway.py
+if ($LASTEXITCODE -ne 0) { throw "SparkRoute development setup failed" }
+```
 
 ## Controller platforms
 
