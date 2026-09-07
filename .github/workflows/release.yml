@@ -24,6 +24,8 @@ jobs:
 
   controls:
     uses: ./.github/workflows/native-controls.yml
+    secrets:
+      SPARKROUTE_CI_SSH_KEY: ${{ secrets.SPARKROUTE_CI_SSH_KEY }}
 
   build:
     name: Verify tag and build distributions

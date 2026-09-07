@@ -75,7 +75,10 @@ def test_release_reuses_the_complete_test_matrix_and_limits_write_access():
     text = (WORKFLOWS / "release.yml").read_text(encoding="utf-8")
     assert "pypa/gh-action-pypi-publish" not in text
     assert "id-token:" not in text
-    assert "secrets." not in text
+    assert release["jobs"]["controls"]["secrets"] == {
+        "SPARKROUTE_CI_SSH_KEY": "${{ secrets.SPARKROUTE_CI_SSH_KEY }}",
+    }
+    assert all("secrets" not in job for name, job in release["jobs"].items() if name != "controls")
 
 
 @pytest.mark.parametrize("tag", ["v0.1.1", "v0.1.0", "v0.3.20", "0.1.1", "v0.1.1-extra"])
@@ -115,7 +118,10 @@ def test_native_controls_cover_every_release_platform_and_gate_publication():
 
 
 def test_private_gateway_checkout_uses_scoped_credentials_and_the_catalog_pin():
-    steps = _workflow("native-controls.yml")["jobs"]["control"]["steps"]
+    workflow = _workflow("native-controls.yml")
+    assert set(workflow["on"]["workflow_call"]["secrets"]) == {"SPARKROUTE_CI_SSH_KEY"}
+    assert workflow["on"]["workflow_call"]["secrets"]["SPARKROUTE_CI_SSH_KEY"]["required"] == "false"
+    steps = workflow["jobs"]["control"]["steps"]
     checkout = next(step for step in steps if step.get("with", {}).get("path") == ".dev/ci-gateway")
     assert checkout["with"]["repository"] == "${{ steps.gateway.outputs.repository }}"
     assert checkout["with"]["ref"] == "${{ steps.gateway.outputs.commit }}"
