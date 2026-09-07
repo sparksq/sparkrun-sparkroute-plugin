@@ -171,3 +171,29 @@ def test_registry_update_failure_is_nonfatal(tmp_path: Path):
     assert result.returncode == 0
     assert "Warning: registry update failed (non-fatal)." in result.stderr
     assert Path(env["FAKE_SPARKRUN_LOG"]).read_text(encoding="utf-8").splitlines() == ["registry update"]
+
+
+def test_copied_assembly_preserves_source_and_does_not_require_symlinks(tmp_path: Path):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("assembler", ROOT / "scripts/assemble-dev-host.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    plugin = tmp_path / "plugin"
+    plugin_source = plugin / "src/sparkrun/plugins/sparkroute"
+    plugin_source.mkdir(parents=True)
+    (plugin_source / "__init__.py").write_text("VERSION = 'test'\n")
+    (plugin / "plugin.toml").write_text("name = 'sparkroute'\n")
+    host = tmp_path / "host"
+    _checkout(host)
+    (host / "src/sparkrun/core").mkdir()
+    (host / module.FEATURES_PATH).write_text("# fixture features\n")
+    (host / module.IN_TREE_PLUGINS_PATH).write_text("# fixture loader\n")
+    destination = plugin / ".dev" / module.ASSEMBLY_NAME
+    module.assemble(host=host, plugin_root=plugin, destination=destination, copy_plugin=True)
+    assembled = destination / "src/sparkrun/plugins/sparkroute"
+    assert not assembled.is_symlink()
+    assert (assembled / "__init__.py").read_bytes() == (plugin_source / "__init__.py").read_bytes()
+    (assembled / "__init__.py").write_text("# copied only\n")
+    assert (plugin_source / "__init__.py").read_text() == "VERSION = 'test'\n"
+    assert not (host / "src/sparkrun/plugins/sparkroute").exists()

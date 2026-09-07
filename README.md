@@ -52,6 +52,21 @@ released, use the commit in `compat/host.toml` or the integration host branch.
 Setup also updates recipe registries and installs local pre-commit hooks, as
 in the ColdSnap plugin workflow.
 
+On Windows, run `python scripts/assemble-dev-host.py --host C:/path/to/sparkrun
+--destination .dev/sparkrun-with-sparkroute` followed by installation into your
+Python environment. The assembler copies plugin source on Windows so it does
+not require symlink privileges; rerun it after edits. `dev.sh` is the POSIX shell
+convenience entry point.
+
+## Controller platforms
+
+SparkRoute release targets are Linux, macOS, and Windows, each on amd64 and
+arm64. The GPU hosts can use a different platform from this controller. Windows
+archives contain `sparkroute.exe`; Linux/macOS archives contain `sparkroute`.
+Native CI exercises both the gateway and the installed SparkRun bridge on all
+six combinations. A source pin in `compat/gateway.toml` identifies the paired
+Go checkout; it is separate from the eventual verified release archive pins.
+
 ## Configuration ownership
 
 SparkRun's `proxy.yaml` bindings project into the gateway's `sparkrun` managed
@@ -101,3 +116,13 @@ The initial source was extracted from SparkRun's
 `feature/llm-gateway-integration` at
 `03c79eff62a36defaf9ac9709021a2b90114829f`. The independent packaging and
 development workflow follow `sparkrun-coldsnap-plugin`.
+
+For a real local binary integration check (loopback HTTP, no GPU workload):
+
+```sh
+SPARKROUTE_TEST_BINARY=/absolute/path/sparkroute pytest tests/test_sparkroute_live.py
+```
+
+Acquired release archives remain beside their executable in the cache, preserving
+the AGPL license, notices, and source/build information. Offline reuse verifies
+the archive and repairs a modified extracted executable before returning it.

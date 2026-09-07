@@ -23,7 +23,7 @@ def main() -> None:
     checkout.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(["git", "init", "--quiet", str(checkout)], check=True)
     subprocess.run(["git", "-C", str(checkout), "fetch", "--depth=1", pin["repository"], pin["commit"]], check=True)
-    subprocess.run(["git", "-C", str(checkout), "checkout", "--detach", "FETCH_HEAD"], check=True)
+    subprocess.run(["git", "-C", str(checkout), "-c", "core.autocrlf=false", "checkout", "--detach", "FETCH_HEAD"], check=True)
     actual = subprocess.check_output(["git", "-C", str(checkout), "rev-parse", "HEAD"], text=True).strip()
     if actual != pin["commit"]:
         raise SystemExit("CI host commit differs from the configured pin")

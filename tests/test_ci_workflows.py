@@ -67,8 +67,8 @@ def test_release_reuses_the_complete_test_matrix_and_limits_write_access():
     assert release["permissions"] == {"contents": "read"}
     assert release["jobs"]["tests"]["uses"] == "./.github/workflows/test-python.yml"
     publish = release["jobs"]["github-release"]
-    assert set(publish["needs"]) == {"tests", "build"}
-    assert publish["if"] == "github.ref_type == 'tag'"
+    assert set(publish["needs"]) == {"tests", "controls", "build"}
+    assert publish["if"] == "github.ref_type == 'tag' && github.repository == 'sparksq/sparkrun-sparkroute-plugin'"
     assert publish["permissions"] == {"contents": "write"}
     assert "permissions" not in release["jobs"]["build"]
     assert "publish-python.yml" not in {path.name for path in WORKFLOWS.glob("*.yml")}
@@ -99,3 +99,16 @@ def test_release_tag_gate_rejects_mismatched_versions(tmp_path: Path, tag: str):
         check=False,
     )
     assert (result.returncode == 0) == (tag == "v0.1.1"), result.stdout + result.stderr
+
+
+def test_native_controls_cover_every_release_platform_and_gate_publication():
+    native = _workflow("native-controls.yml")
+    assert set(native["jobs"]["control"]["strategy"]["matrix"]["runner"]) == {
+        "ubuntu-24.04", "ubuntu-24.04-arm", "macos-15-intel", "macos-15", "windows-2025", "windows-11-arm",
+    }
+    release = _workflow("release.yml")
+    assert release["jobs"]["controls"]["uses"] == "./.github/workflows/native-controls.yml"
+    commands = "\n".join(step.get("run", "") for step in native["jobs"]["control"]["steps"])
+    assert "scripts/prepare-ci-host.py" in commands
+    assert "scripts/prepare-ci-gateway.py" in commands
+    assert "tests/test_sparkroute_live.py" in commands

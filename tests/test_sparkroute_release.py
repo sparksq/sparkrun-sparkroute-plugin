@@ -160,11 +160,38 @@ def test_download_verifies_then_unpacks_an_executable(pinned, payload, tmp_path)
 
 
 def test_only_the_binary_is_unpacked(pinned, payload, tmp_path):
-    """The archive's licence files are not written into the cache — the member
-    is chosen by name, not extracted wholesale."""
+    """License material stays in the retained, verified distribution archive."""
     with mock.patch.object(release.urllib.request, "urlopen", return_value=_Stream(payload)):
         path = release.ensure_binary(pinned, cache_dir=tmp_path)
     assert not (path.parent / "LICENSE").exists()
+    with tarfile.open(release.archive_path(pinned, cache_dir=tmp_path)) as archive:
+        assert archive.extractfile("./LICENSE").read() == b"AGPL-3.0-only"
+        assert archive.extractfile("./NOTICE").read() == b"notice"
+
+
+def test_corrupted_extracted_binary_is_repaired_offline(pinned, payload, tmp_path):
+    with mock.patch.object(release.urllib.request, "urlopen", return_value=_Stream(payload)):
+        path = release.ensure_binary(pinned, cache_dir=tmp_path)
+    path.write_bytes(b"corrupted executable")
+    with mock.patch.object(release.urllib.request, "urlopen") as urlopen:
+        repaired = release.ensure_binary(pinned, cache_dir=tmp_path)
+    urlopen.assert_not_called()
+    assert repaired.read_bytes() == BINARY_BODY
+
+
+def test_cached_symlink_is_replaced_without_overwriting_target(pinned, payload, tmp_path):
+    with mock.patch.object(release.urllib.request, "urlopen", return_value=_Stream(payload)):
+        path = release.ensure_binary(pinned, cache_dir=tmp_path)
+    target = tmp_path / "external"
+    target.write_bytes(b"external file")
+    path.unlink()
+    path.symlink_to(target)
+    with mock.patch.object(release.urllib.request, "urlopen") as urlopen:
+        repaired = release.ensure_binary(pinned, cache_dir=tmp_path)
+    urlopen.assert_not_called()
+    assert not repaired.is_symlink()
+    assert repaired.read_bytes() == BINARY_BODY
+    assert target.read_bytes() == b"external file"
 
 
 def test_digest_mismatch_leaves_nothing_executable(pinned, tmp_path):

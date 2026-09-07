@@ -244,10 +244,8 @@ def ensure_binary(
     if not force and archive.is_file():
         actual = _file_digest(archive)
         if actual == digest:
-            if destination.is_file():
-                return destination
-            # The archive is trusted, so re-unpacking is enough; nothing needs
-            # to be fetched again.
+            # The archive pin says nothing about a modified extracted binary.
+            # Restore from the freshly verified archive, including offline.
             _extract_binary(archive, target_os, destination)
             return destination
         # A cached file that no longer matches is corruption or tampering, not
@@ -310,7 +308,17 @@ def _extract_binary(archive: Path, target_os: str, destination: Path) -> None:
         if not written:
             raise GatewayReleaseError("SparkRoute archive %s contains an empty %s" % (archive.name, wanted))
         tmp_path.chmod(stat.S_IRWXU)
-        os.replace(tmp_path, destination)
+        # Avoid replacing an unchanged executable in use. A replaced symlink,
+        # changed mode, or corrupted binary must be repaired from the archive.
+        if (
+            destination.is_file()
+            and not destination.is_symlink()
+            and (os.name == "nt" or stat.S_IMODE(destination.stat().st_mode) == stat.S_IRWXU)
+            and _file_digest(destination) == _file_digest(tmp_path)
+        ):
+            tmp_path.unlink()
+        else:
+            os.replace(tmp_path, destination)
     except GatewayReleaseError:
         tmp_path.unlink(missing_ok=True)
         raise

@@ -22,6 +22,9 @@ jobs:
   tests:
     uses: ./.github/workflows/test-python.yml
 
+  controls:
+    uses: ./.github/workflows/native-controls.yml
+
   build:
     name: Verify tag and build distributions
     runs-on: ubuntu-latest
@@ -75,8 +78,8 @@ jobs:
 
   github-release:
     name: Create GitHub release
-    needs: [tests, build]
-    if: github.ref_type == 'tag'
+    needs: [tests, controls, build]
+    if: github.ref_type == 'tag' && github.repository == 'sparksq/sparkrun-sparkroute-plugin'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

@@ -73,7 +73,7 @@ def _apply_host_seams(host: Path, plugin_root: Path) -> None:
     config = host / "src/sparkrun/proxy/config.py"
     api = host / "src/sparkrun/api/proxy/_ops.py"
     if config.is_file() and api.is_file():
-        if "def bindings(" in config.read_text() and "def ui(" in api.read_text():
+        if "def bindings(" in config.read_text() and "def ui(" in api.read_text() and (host / "src/sparkrun/utils/process.py").is_file():
             return
     # A temporary Git root prevents git apply from discovering the plugin's
     # parent repository and interpreting paths relative to that checkout.
@@ -107,7 +107,7 @@ def _remove_path(path: Path) -> None:
         shutil.rmtree(path)
 
 
-def assemble(*, host: Path, plugin_root: Path, destination: Path) -> Path:
+def assemble(*, host: Path, plugin_root: Path, destination: Path, copy_plugin: bool = False) -> Path:
     """Build and return the disposable in-tree development checkout."""
     host = host.expanduser().resolve()
     plugin_root = plugin_root.expanduser().resolve()
@@ -144,7 +144,10 @@ def assemble(*, host: Path, plugin_root: Path, destination: Path) -> Path:
         assembled_plugin = temporary / PLUGIN_MODULE_PATH
         _remove_path(assembled_plugin)
         assembled_plugin.parent.mkdir(parents=True, exist_ok=True)
-        assembled_plugin.symlink_to(plugin_source, target_is_directory=True)
+        if copy_plugin or sys.platform == "win32":
+            shutil.copytree(plugin_source, assembled_plugin, ignore=_ignore)
+        else:
+            assembled_plugin.symlink_to(plugin_source, target_is_directory=True)
 
         _append_if_missing(temporary / FEATURES_PATH, _FEATURE_PATTERN, _FEATURE_BINDING)
         _append_if_missing(temporary / IN_TREE_PLUGINS_PATH, _BINDING_PATTERN, _LOADER_BINDING)
@@ -163,13 +166,14 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", type=Path, required=True, help="base sparkrun checkout to copy")
     parser.add_argument("--destination", type=Path, required=True, help="disposable assembled checkout")
     parser.add_argument("--plugin-root", type=Path, default=ROOT, help=argparse.SUPPRESS)
+    parser.add_argument("--copy-plugin", action="store_true", help="copy plugin files instead of linking (default on Windows)")
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
-        destination = assemble(host=args.host, plugin_root=args.plugin_root, destination=args.destination)
+        destination = assemble(host=args.host, plugin_root=args.plugin_root, destination=args.destination, copy_plugin=args.copy_plugin)
     except (AssemblyError, OSError) as error:
         print("error: %s" % error, file=sys.stderr)
         return 1

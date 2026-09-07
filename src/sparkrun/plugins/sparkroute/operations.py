@@ -112,7 +112,7 @@ def _require_feature_enabled() -> None:
         return
     raise ProtocolError(
         "feature_disabled",
-        "the Scitrera OSS gateway integration is disabled; enable it with: sparkrun setup features enable %s" % REQUIRED_FEATURE_FLAG,
+        "the SparkRoute gateway integration is disabled; enable it with: sparkrun setup features enable %s" % REQUIRED_FEATURE_FLAG,
     )
 
 

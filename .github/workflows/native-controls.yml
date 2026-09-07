@@ -1,0 +1,42 @@
+# Repository-owned paired Go/Python qualification across controller platforms.
+name: Native control platforms
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  control:
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15-intel, macos-15, windows-2025, windows-11-arm]
+    env:
+      PYTHONUTF8: '1'
+      GOWORK: 'off'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.14'
+      - uses: astral-sh/setup-uv@v9
+        with:
+          version: '0.9.17'
+      - name: Assemble the pinned host
+        run: python scripts/prepare-ci-host.py
+      - name: Install host and plugin
+        run: uv pip install --system -e .dev/sparkrun-with-sparkroute -e . --group dev
+      - name: Build the pinned OSS gateway
+        run: python scripts/prepare-ci-gateway.py
+      - name: Qualify process probes and the real gateway integration
+        run: python -m pytest -v tests/test_sparkroute_live.py .dev/sparkrun-with-sparkroute/tests/test_process_probe.py
