@@ -518,11 +518,12 @@ index af3be2c..47471c2 100644
 +        self._pending_discovered_models = normalized
 diff --git a/src/sparkrun/utils/process.py b/src/sparkrun/utils/process.py
 new file mode 100644
-index 0000000..1409228
+index 0000000..8c18b1b
 --- /dev/null
 +++ b/src/sparkrun/utils/process.py
-@@ -0,0 +1,57 @@
+@@ -0,0 +1,58 @@
 +"""Non-destructive local process probes for POSIX and Windows control nodes."""
++
 +from __future__ import annotations
 +
 +import os
@@ -581,11 +582,12 @@ index 0000000..1409228
 +        return inaccessible
 diff --git a/tests/test_process_probe.py b/tests/test_process_probe.py
 new file mode 100644
-index 0000000..f4c0ef2
+index 0000000..75622ca
 --- /dev/null
 +++ b/tests/test_process_probe.py
-@@ -0,0 +1,46 @@
+@@ -0,0 +1,47 @@
 +"""Process status checks must never signal a Windows process."""
++
 +import subprocess
 +import sys
 +from unittest.mock import Mock
@@ -596,7 +598,7 @@ index 0000000..f4c0ef2
 +
 +
 +def test_probe_leaves_real_child_alive_until_explicit_termination():
-+    child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])
++    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
 +    try:
 +        assert process.process_exists(child.pid)
 +        assert child.poll() is None
@@ -608,26 +610,26 @@ index 0000000..f4c0ef2
 +    assert not process.process_exists(child.pid)
 +
 +
-+@pytest.mark.parametrize('pid', [None, 0, -1, True])
++@pytest.mark.parametrize("pid", [None, 0, -1, True])
 +def test_invalid_pid_cannot_target_a_process_group(pid, monkeypatch):
-+    kill = Mock(side_effect=AssertionError('must not signal'))
-+    monkeypatch.setattr(process.os, 'kill', kill)
++    kill = Mock(side_effect=AssertionError("must not signal"))
++    monkeypatch.setattr(process.os, "kill", kill)
 +    assert not process.process_exists(pid)
 +    kill.assert_not_called()
 +
 +
 +def test_windows_dispatch_never_uses_kill_zero(monkeypatch):
-+    monkeypatch.setattr(process.sys, 'platform', 'win32')
-+    monkeypatch.setattr(process, '_windows_process_exists', lambda pid: pid == 42)
-+    kill = Mock(side_effect=AssertionError('must not signal'))
-+    monkeypatch.setattr(process.os, 'kill', kill)
++    monkeypatch.setattr(process.sys, "platform", "win32")
++    monkeypatch.setattr(process, "_windows_process_exists", lambda pid: pid == 42)
++    kill = Mock(side_effect=AssertionError("must not signal"))
++    monkeypatch.setattr(process.os, "kill", kill)
 +    assert process.process_exists(42)
 +    assert not process.process_exists(43)
 +    kill.assert_not_called()
 +
 +
 +def test_inaccessible_probe_preserves_callers_policy(monkeypatch):
-+    monkeypatch.setattr(process.sys, 'platform', 'win32')
-+    monkeypatch.setattr(process, '_windows_process_exists', Mock(side_effect=PermissionError()))
++    monkeypatch.setattr(process.sys, "platform", "win32")
++    monkeypatch.setattr(process, "_windows_process_exists", Mock(side_effect=PermissionError()))
 +    assert not process.process_exists(42)
 +    assert process.process_exists(42, inaccessible=True)
