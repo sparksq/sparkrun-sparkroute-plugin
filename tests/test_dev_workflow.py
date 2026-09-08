@@ -26,6 +26,8 @@ def _checkout(path: Path) -> None:
     (path / "src" / "sparkrun").mkdir(parents=True)
     (path / "pyproject.toml").write_text("[project]\nname = 'sparkrun'\n", encoding="utf-8")
     (path / "src" / "sparkrun" / "__init__.py").write_text("", encoding="utf-8")
+    (path / "src/sparkrun/api").mkdir()
+    (path / "src/sparkrun/api/_catalog.py").write_text("# catalog API\n")
 
 
 def _development_tree(tmp_path: Path) -> tuple[Path, Path, dict[str, str]]:
@@ -103,7 +105,8 @@ def test_repeated_source_honors_a_changed_managed_branch(tmp_path: Path):
             "-c",
             """
 set -e
-unset SPARKRUN_BRANCH _SPARKRUN_SPARKROUTE_MANAGED_CHECKOUT
+unset _SPARKRUN_SPARKROUTE_MANAGED_CHECKOUT
+export SPARKRUN_BRANCH=main
 export SPARKRUN_CHECKOUT="$PLUGIN_ROOT/.dev/sparkrun"
 source "$PLUGIN_ROOT/dev.sh"
 export SPARKRUN_BRANCH=develop-next
@@ -249,3 +252,36 @@ def test_binary_preparation_failure_does_not_report_success(tmp_path):
     assert result.returncode != 0
     assert "Done." not in result.stdout
     assert not Path(env["FAKE_SPARKRUN_LOG"]).exists()
+
+
+def test_old_shared_host_uses_compatible_project_checkout(tmp_path: Path):
+    plugin, git_log, env = _development_tree(tmp_path)
+    project_api = plugin / ".dev/sparkrun/src/sparkrun/api"
+    project_api.mkdir(exist_ok=True)
+    (project_api / "_catalog.py").write_text("# catalog API\n")
+    old = tmp_path / "old-host"
+    _checkout(old)
+    (old / "src/sparkrun/api/_catalog.py").unlink()
+    result = subprocess.run(
+        ["bash", "-c", 'source "$PLUGIN_ROOT/dev.sh" && echo "selected=$SPARKRUN_CHECKOUT"'],
+        env={**env, "PLUGIN_ROOT": str(plugin), "SPARKRUN_CHECKOUT": str(old)},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "Selected host lacks the recipe catalog API" in result.stdout
+    assert "selected=" + str(plugin / ".dev/sparkrun") in result.stdout
+
+
+def test_project_worktree_branch_is_not_rewritten(tmp_path: Path):
+    plugin, git_log, env = _development_tree(tmp_path)
+    git = plugin / ".dev/sparkrun/.git"
+    git.rmdir()
+    git.write_text("gitdir: /example/worktrees/sparkrun\n")
+    result = subprocess.run(
+        ["bash", "-c", 'source "$PLUGIN_ROOT/dev.sh"'], env={**env, "PLUGIN_ROOT": str(plugin)}, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    assert "without changing its branch" in result.stdout
+    commands = git_log.read_text() if git_log.exists() else ""
+    assert "fetch" not in commands and "switch" not in commands

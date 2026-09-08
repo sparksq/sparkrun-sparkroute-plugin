@@ -50,7 +50,7 @@ The original checkout is never fetched, switched, or edited. The patch is a
 development aid; production SparkRun incorporates the host changes itself.
 
 Without `SPARKRUN_CHECKOUT`, the setup script manages a clone of the official
-SparkRun repository. `SPARKRUN_BRANCH` selects its branch. Until the hooks are
+SparkRun repository. `SPARKRUN_BRANCH` selects its branch (currently `develop-next` by default). Until the hooks are
 released, use the commit in `compat/host.toml` or the integration host branch.
 Setup also updates recipe registries and installs local pre-commit hooks, as
 in the ColdSnap plugin workflow.
@@ -106,13 +106,38 @@ separate discovery snapshot supplies routes for already-running workloads.
 Recipe resolution and launch use SparkRun's normal trust checks. Adopting an
 endpoint does not grant permission to stop a workload created by someone else.
 
-The bridge uses strict schema v2, exposing the optional named `cluster_name`.
-This is the integration's first use: there is no v1 compatibility or downgrade
-path. Update the plugin and pinned SparkRoute binary together. Named cluster
-metadata never changes routing IDs, placement, or stop ownership. Older job
-records without a named cluster remain unknown until explicitly repaired;
-overlapping host sets are not used to guess the original cluster. Request profiles
-and ColdSnap lifecycle capabilities will use further explicit contract revisions.
+## Configure an on-demand model
+
+1. Open `sparkrun proxy ui`, then **Configuration → Model Deployments → Add SparkRun recipe**.
+2. Search cached registries, select a control-node file, or upload a recipe YAML.
+   Select a result to preview its model, native protocols, and requirements.
+3. Enter a public model name such as `coding`, optional aliases, and a named
+   cluster. Set the cold-start wait and optionally enable idle shutdown.
+4. Choose **Add to draft → Validate → Save**. Saving does not start the model.
+5. Send a request for `coding`. SparkRoute starts or reuses the selected recipe
+   on that cluster, waits for readiness, and forwards to its actual assigned port.
+
+The default cold-start wait is 15 minutes; client timeouts may need to be longer
+than a model's first download/load. Idle shutdown is off by default (30 minutes
+is suggested when enabled). Aliases share one deployment and its lifecycle
+policy. Idle time begins after the last request finishes, including streams.
+Workloads launched by someone else can be adopted but are never stopped by
+SparkRoute's idle policy. The Runtime page shows launch phase, cluster, job,
+and ownership.
+
+Registry search is cache-only; **Refresh registries** is explicit and reports
+partial failures. Local paths belong to the control node. Uploads do not grant
+trust or include referenced auxiliary files. Validation and activation check
+pinned recipe contents; changed recipes require a fresh preview. Unknown API
+model names never trigger an inferred registry search or launch.
+
+This flow requires the catalog API in the SparkRun core commit pinned in
+`compat/host.toml`. The bridge uses strict schema v3; update the plugin and
+pinned SparkRoute binary together. Named cluster metadata controls placement
+and adoption. Older job records without it remain unknown; overlapping host
+sets are not used to guess a cluster. See [the bridge contract](docs/SPARKROUTE_BRIDGE.md)
+for durable launch recovery. Request profiles and ColdSnap sleep/wake remain
+subsequent work.
 
 ## Versions, tests, and releases
 

@@ -14,13 +14,48 @@ diagnostics and logging use standard error. The command is intentionally omitted
 from `sparkrun --help`; its versioned JSON schema, rather than Click's command
 presentation, is the compatibility boundary.
 
-Schema version 1 supports `capabilities`, `resolve`, `ensure_ready`, `discover`,
-`status`, and `stop`. Requests carry a caller-generated `request_id`; every
-response repeats it. A binding can contain only a configured recipe reference,
-its Sparkrun recipe fingerprint, ordered cluster candidates, and bounded recipe
-overrides. `ensure_ready` adopts a healthy matching workload before launching a
-new one, tries cluster candidates in order when capacity is unavailable, and
-waits for an authenticated `/v1/models` health check.
+Schema version 3 supports `capabilities`, `resolve`, `ensure_ready`, `discover`,
+`status`, `stop`, and the catalog operations below. Requests carry a
+caller-generated `request_id`; every response repeats it. Both sides use strict
+schema decoding. Update the plugin and gateway together; earlier schemas are
+not accepted.
+
+A binding contains a configured recipe reference, its SparkRun fingerprint,
+named cluster candidates, and bounded recipe overrides. Discovery, adoption,
+registration, and shutdown all enforce the selected cluster using authoritative
+job metadata. A job with an unknown cluster cannot satisfy a cluster restriction.
+
+## Catalog and configuration
+
+The bridge delegates to the public `sparkrun.api` catalog helpers:
+
+| Operation | Arguments / result |
+| --- | --- |
+| `catalog_registries` | Configured registry availability, visibility, and trust; no refresh. |
+| `catalog_clusters` | Named clusters, host counts, and the current default; no SSH. |
+| `catalog_search` | `query`, `registry`, `runtime`, `local_only`, `offset`, `limit`; cached results with exact source references and pagination. |
+| `catalog_resolve` | `reference`, optional `overrides`; model, native protocols, revision, plugin requirements, and validation issues. |
+| `catalog_import` | Bounded single-document YAML `content`; returns an untrusted managed import preview. |
+| `catalog_retain` | `reference`; retains a saved import. |
+| `catalog_refresh` | Starts a durable registry refresh; returns an operation ID. |
+| `operation_status` | `operation_id`; progress or a persisted result. Never starts a worker. |
+
+Canonical `catalog:<id>` references preserve exact file/registry identity,
+including duplicate recipe names and paths containing spaces. Search reads
+registry caches and the control node's configuration-directory `recipes/` and
+`recipe-catalog/imports/` roots. It never relies on the gateway's working
+directory. Explicit local paths refer to the control node, not the browser.
+Uploads are limited to 256 KiB. Unused staged uploads expire after seven days;
+saved imports remain available. Uploading does not grant trust or import
+auxiliary build files. Review and trust registries through SparkRun itself.
+
+SparkRoute exposes these through authenticated `POST /v1/sparkrun/catalog` and
+prepares an operator draft through `POST /v1/sparkrun/recipe-draft`. Read roles
+can browse; writer roles are required for upload/refresh/draft preparation.
+The existing managed-set Validate and Save endpoints recheck recipe revisions
+and clusters against the merged operator/generated configuration. Preparation,
+validation, and saving do not start models. An unavailable catalog leaves
+cloud-only provider configuration usable.
 
 ## Ownership
 
@@ -30,27 +65,42 @@ as the gateway does. Adoption and teardown therefore have deliberately different
 rules. Every workload the bridge launches is tagged `owner: sparkroute` in
 Sparkrun job metadata.
 
-`ensure_ready` may adopt any healthy endpoint matching the fingerprint,
+`ensure_ready` may adopt a healthy endpoint matching the fingerprint and selected cluster,
 preferring an owned one — routing to a workload someone else started is
 harmless and avoids a duplicate launch. `stop` refuses anything the bridge did
 not launch (`job_not_owned`); with no `cluster_id` it tears down only the owned
 matches. Killing a workload a human is using is not recoverable by retrying, so
 the destructive direction fails closed.
 
-Ownership is *not* reported on the wire. The gateway decodes results with Go's
-`DisallowUnknownFields`, so each result's key set is a hard contract and an
-extra field fails the whole decode; the marker is stripped at the response
-boundary. Exposing it means adding the field to the gateway's `Endpoint` struct
-first.
+Endpoint projections include `owned` and `cluster_name`. Private API keys and
+raw job metadata stay on the control node. Idle shutdown is available only for
+owned workloads; shared request leases span gateway configuration generations.
+Deleting a route disables its idle policy without stopping the job.
 
-## Timing
+## Durable activation and timing
 
-`ensure_ready` is synchronous through the whole launch — model download and
-image distribution included — and `timeout_seconds` bounds the operation from
-the moment the request is accepted, but is only *checked* at phase boundaries;
-nothing interrupts a launch in flight. Send `"wait": false` to return in state
-`activating` as soon as the launch call returns, then poll `status`. That does not make the call cheap, only shorter: the launch
-itself is synchronous either way.
+`ensure_ready` admits a detached controller-local worker before returning when
+`wait` is false. Poll `operation_status` for `running`, `succeeded`, or `failed`,
+its phase, and the eventual endpoint result. Synchronous callers wait on the
+same durable operation. Aliases of the same recipe revision and cluster share
+one worker. Different recipes can activate independently.
+
+The worker uses the normal `api.plan` / `api.run` path, automatic port selection,
+post-launch hooks, and shared startup-readiness checks. It records planned
+placement before launching and the actual assigned port before readiness.
+`timeout_seconds` includes launch time but cannot interrupt an in-flight remote
+launch. A caller timeout or gateway restart does not kill the worker. Retry
+reconciles its recorded placement and persisted jobs before launching again.
+An unreachable previous job or uncertain interrupted post-launch hooks fails
+with an actionable recovery error instead of risking a duplicate launch.
+
+Operation state lives in `sparkroute/operations.sqlite3` under SparkRun's
+configuration directory, with bounded private `<operation-id>.log` files beside
+it. Terminal records and their logs expire after seven days. Dead-worker status
+is read-only; a new activation request resumes reconciliation. Idle timers are
+process-local; after a gateway restart, observed owned workloads begin a new
+idle interval. Multi-gateway shared ownership is outside this local bridge's
+scope.
 
 Successful endpoint projections contain cluster/job identity, host, port,
 protocol, served models, runtime, and recipe fingerprint. They never contain the
@@ -110,7 +160,7 @@ A configuration tool can obtain the exact fingerprint, including overrides, by
 sending a `resolve` request. For example:
 
 ```json
-{"schema_version":1,"request_id":"resolve-1","operation":"resolve","binding":{"recipe":"@local/qwen","cluster_candidates":["spark-a"],"overrides":{"tensor_parallel":"2"}}}
+{"schema_version":3,"request_id":"resolve-1","operation":"resolve","binding":{"recipe":"@local/qwen","cluster_candidates":["spark-a"],"overrides":{"tensor_parallel":"2"}}}
 ```
 
 The returned `result.recipe_revision` is the value pinned in the gateway's

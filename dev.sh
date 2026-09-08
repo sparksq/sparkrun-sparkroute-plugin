@@ -26,7 +26,7 @@ _sparkrun_sparkroute_dev_setup() {
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)" || return 1
     venv_dir="$script_dir/.venv"
     dev_checkout="$script_dir/.dev/sparkrun-with-sparkroute"
-    branch="${SPARKRUN_BRANCH:-main}"
+    branch="${SPARKRUN_BRANCH:-develop-next}"
     checkout_override="${SPARKRUN_CHECKOUT:-}"
 
     # A managed setup exports its resolved path for the test bootstrap. On a
@@ -66,15 +66,18 @@ _sparkrun_sparkroute_dev_setup() {
             return 1
         fi
 
-        if [[ -e "$checkout" && ! -d "$checkout/.git" ]]; then
+        if [[ -e "$checkout" && ! -e "$checkout/.git" ]]; then
             echo "Managed checkout path exists but is not a Git repository: $checkout" >&2
             return 1
         fi
 
-        if [[ ! -d "$checkout/.git" ]]; then
+        if [[ ! -e "$checkout/.git" ]]; then
             mkdir -p "$(dirname "$checkout")" || return 1
             echo "Cloning sparkrun branch $branch from $repository ..."
             git clone --single-branch --branch "$branch" "$repository" "$checkout" || return 1
+        elif [[ -f "$checkout/.git" ]]; then
+            echo "Using project SparkRun worktree without changing its branch: $checkout"
+            managed_checkout=0
         else
             checkout_origin="$(git -C "$checkout" remote get-url origin)" || return 1
             if [[ "$checkout_origin" != "$repository" ]]; then
@@ -92,8 +95,22 @@ _sparkrun_sparkroute_dev_setup() {
         fi
     fi
 
+    # A shared shell may still point at an older ColdSnap development host.
+    # Prefer this project's compatible local worktree when that host lacks the
+    # public recipe catalog needed by the paired gateway.
+    if [[ ! -f "$checkout/src/sparkrun/api/_catalog.py" && -f "$script_dir/.dev/sparkrun/src/sparkrun/api/_catalog.py" ]]; then
+        echo "Selected host lacks the recipe catalog API; using this project's SparkRun checkout."
+        checkout="$script_dir/.dev/sparkrun"
+        managed_checkout=0
+    fi
+
     if [[ ! -f "$checkout/pyproject.toml" || ! -f "$checkout/src/sparkrun/__init__.py" ]]; then
         echo "Selected path is not a sparkrun checkout: $checkout" >&2
+        return 1
+    fi
+
+    if [[ ! -f "$checkout/src/sparkrun/api/_catalog.py" ]]; then
+        echo "This SparkRun checkout lacks the recipe catalog API. Select the host commit in compat/host.toml via SPARKRUN_CHECKOUT." >&2
         return 1
     fi
 

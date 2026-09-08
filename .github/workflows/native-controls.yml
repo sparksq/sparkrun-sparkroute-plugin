@@ -64,4 +64,4 @@ jobs:
       - name: Build the pinned OSS gateway
         run: python scripts/prepare-ci-gateway.py --source .dev/ci-gateway
       - name: Qualify process probes and the real gateway integration
-        run: python -m pytest -v tests/test_sparkroute_live.py .dev/sparkrun-with-sparkroute/tests/test_process_probe.py
+        run: python -m pytest -v tests/test_sparkroute_live.py tests/test_sparkroute_jobs.py .dev/sparkrun-with-sparkroute/tests/test_process_probe.py .dev/sparkrun-with-sparkroute/tests/test_api_catalog.py
