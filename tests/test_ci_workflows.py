@@ -108,7 +108,12 @@ def test_release_tag_gate_rejects_mismatched_versions(tmp_path: Path, tag: str):
 def test_native_controls_cover_every_release_platform_and_gate_publication():
     native = _workflow("native-controls.yml")
     assert set(native["jobs"]["control"]["strategy"]["matrix"]["runner"]) == {
-        "ubuntu-24.04", "ubuntu-24.04-arm", "macos-15-intel", "macos-15", "windows-2025", "windows-11-arm",
+        "ubuntu-24.04",
+        "ubuntu-24.04-arm",
+        "macos-15-intel",
+        "macos-15",
+        "windows-2025",
+        "windows-11-arm",
     }
     release = _workflow("release.yml")
     assert release["jobs"]["controls"]["uses"] == "./.github/workflows/native-controls.yml"

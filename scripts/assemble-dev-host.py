@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -171,6 +172,31 @@ def assemble(*, host: Path, plugin_root: Path, destination: Path, copy_plugin: b
             shutil.copytree(plugin_source, assembled_plugin, ignore=_ignore)
         else:
             assembled_plugin.symlink_to(plugin_source, target_is_directory=True)
+
+        # Optionally include the adjacent canonical ColdSnap plugin for combined
+        # development. This changes only the disposable host, never either repo.
+        cold_setting = os.environ.get("SPARKRUN_COLDSNAP_CHECKOUT", "")
+        cold_root = Path(cold_setting).expanduser() if cold_setting else plugin_root.parent / "sparkrun-coldsnap-plugin"
+        cold_source = cold_root / "src/sparkrun/plugins/coldsnap"
+        if cold_setting != "none" and cold_source.is_dir():
+            cold_target = temporary / "src/sparkrun/plugins/coldsnap"
+            _remove_path(cold_target)
+            if copy_plugin or sys.platform == "win32":
+                shutil.copytree(cold_source, cold_target, ignore=_ignore)
+            else:
+                cold_target.symlink_to(cold_source.resolve(), target_is_directory=True)
+            _append_if_missing(
+                temporary / FEATURES_PATH,
+                re.compile(r'name\s*=\s*[\'"]plugins\.coldsnap[\'"]'),
+                '\nFEATURE_PLUGIN_COLDSNAP = register_feature(FeatureFlag(name="plugins.coldsnap", description="ColdSnap workload lifecycle", default=True))\n',
+            )
+            _append_if_missing(
+                temporary / IN_TREE_PLUGINS_PATH,
+                re.compile(r'[\'"]coldsnap[\'"]\s*[:\]]'),
+                '\nIN_TREE_PLUGIN_FEATURES["coldsnap"] = "plugins.coldsnap"\n',
+            )
+        elif cold_setting and cold_setting != "none":
+            raise AssemblyError("SPARKRUN_COLDSNAP_CHECKOUT does not contain the ColdSnap plugin")
 
         _append_if_missing(temporary / FEATURES_PATH, _FEATURE_PATTERN, _FEATURE_BINDING)
         _append_if_missing(temporary / IN_TREE_PLUGINS_PATH, _BINDING_PATTERN, _LOADER_BINDING)

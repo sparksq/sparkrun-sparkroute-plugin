@@ -26,8 +26,10 @@ def _checkout(path: Path) -> None:
     (path / "src" / "sparkrun").mkdir(parents=True)
     (path / "pyproject.toml").write_text("[project]\nname = 'sparkrun'\n", encoding="utf-8")
     (path / "src" / "sparkrun" / "__init__.py").write_text("", encoding="utf-8")
+    (path / "src/sparkrun/runtimes").mkdir()
+    (path / "src/sparkrun/runtimes/base.py").write_text("def native_api_options(): pass\n")
     (path / "src/sparkrun/api").mkdir()
-    (path / "src/sparkrun/api/_catalog.py").write_text("# catalog API\n")
+    (path / "src/sparkrun/api/_catalog.py").write_text("def catalog_cluster_capacity(): pass\n")
 
 
 def _development_tree(tmp_path: Path) -> tuple[Path, Path, dict[str, str]]:
@@ -258,7 +260,7 @@ def test_old_shared_host_uses_compatible_project_checkout(tmp_path: Path):
     plugin, git_log, env = _development_tree(tmp_path)
     project_api = plugin / ".dev/sparkrun/src/sparkrun/api"
     project_api.mkdir(exist_ok=True)
-    (project_api / "_catalog.py").write_text("# catalog API\n")
+    (project_api / "_catalog.py").write_text("def catalog_cluster_capacity(): pass\n")
     old = tmp_path / "old-host"
     _checkout(old)
     (old / "src/sparkrun/api/_catalog.py").unlink()
@@ -269,7 +271,7 @@ def test_old_shared_host_uses_compatible_project_checkout(tmp_path: Path):
         text=True,
     )
     assert result.returncode == 0, result.stderr
-    assert "Selected host lacks the recipe catalog API" in result.stdout
+    assert "Selected host lacks the current recipe catalog API" in result.stdout
     assert "selected=" + str(plugin / ".dev/sparkrun") in result.stdout
 
 

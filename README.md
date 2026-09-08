@@ -140,12 +140,11 @@ pinned recipe contents; changed recipes require a fresh preview. Unknown API
 model names never trigger an inferred registry search or launch.
 
 This flow requires the catalog API in the sparkrun core commit pinned in
-`compat/host.toml`. The bridge uses strict schema v3; update the plugin and
+`compat/host.toml`. The bridge uses strict schema v4; update the plugin and
 pinned SparkRoute binary together. Named cluster metadata controls placement
 and adoption. Older job records without it remain unknown; overlapping host
 sets are not used to guess a cluster. See [the bridge contract](docs/SPARKROUTE_BRIDGE.md)
-for durable launch recovery. Request profiles and ColdSnap sleep/wake remain
-subsequent work.
+for durable launch recovery. Request profiles and ColdSnap lifecycle controls are described below.
 
 ## Versions, tests, and releases
 
@@ -189,3 +188,56 @@ SPARKROUTE_TEST_BINARY=/absolute/path/sparkroute pytest tests/test_sparkroute_li
 Acquired release archives remain beside their executable in the cache, preserving
 the AGPL license, notices, and source/build information. Offline reuse verifies
 the archive and repairs a modified extracted executable before returning it.
+
+## Runtime APIs, profiles, and lifecycle
+
+The provider type is `sparkrun`; each deployment carries its native APIs. The
+recipe editor exposes runtime-family choices: vLLM offers Chat Completions,
+Responses, and Anthropic Messages. Known version tags select supported defaults;
+unknown/custom images remain conservative. Recipes can declare
+`metadata.native_apis: [chat_completions, responses, messages]`. Discovered jobs
+resolve declarations from their saved recipe, and jobs sharing a model advertise
+only their common APIs. Optional model capabilities remain permissive by default.
+
+The recipe's `defaults.served_model_name`, then its Hugging Face model name,
+initializes the public name. Advanced launch settings support ordered fallback
+clusters. Fallback occurs on insufficient capacity before launch; uncertain
+launches require reconciliation rather than starting another copy elsewhere.
+The picker includes declared metadata facets, registry enable/add/remove/trust
+controls, declared benchmark context, and explicit advisory capacity checks.
+Unknown capacity is never presented as free capacity.
+
+Under **Virtual Models / Aliases → Request profiles**, add `low` or `xhigh` and
+API-specific JSON overrides. For Chat use `{"reasoning_effort":"xhigh"}`; for
+Responses use `{"reasoning":{"effort":"xhigh"}}`. These are explicit public
+virtual models sharing the original deployment. Parameters override caller
+values before translation; request structure and routing fields are protected.
+
+For ColdSnap recipes, idle policy can sleep instead of stop. Runtime controls
+show Status/Sleep/Wake only for receipt-backed jobs using an enabled ColdSnap
+lifecycle API. Sleep/wake changes require SparkRoute ownership and no active
+leases. A request to a sleeping owned workload wakes the same job. Installed,
+enabled, recipe-required, and actually-used plugins are reported separately.
+ColdSnap's `control_job` API checks the saved job ID, hosts, and capture receipt.
+A lost sleep reply blocks cached admission until its state is verified.
+
+The disposable development assembly includes an adjacent
+`sparkrun-coldsnap-plugin` checkout when present. Override its location with
+`SPARKRUN_COLDSNAP_CHECKOUT`, or set it to `none` to omit it. This does not install
+ColdSnap into the original sparkrun checkout.
+
+## Trace settings
+
+**Configuration → Advanced Options** configures saved request/response traces
+(filesystem or SQLite, path, body limit, queue, overflow policy) and OTLP/HTTP
+operational traces (collector URL, service name, sampling, header environment
+references). Validate then Save applies settings to new requests; older requests
+drain with their original settings. “Use startup settings” follows the existing
+CLI/environment configuration. Paths and header variables belong to the gateway
+host. Disable does not delete existing trace files.
+
+Saved trace export becomes available with payload capture enabled; refresh the
+console after saving to update its navigation. Export
+requires the separate `trace_read_all` role, granted to the default local
+administrator, not ordinary config/status readers. Collector authentication
+values stay in environment variables, outside saved configuration.

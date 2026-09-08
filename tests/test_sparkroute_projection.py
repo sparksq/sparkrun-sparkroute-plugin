@@ -107,7 +107,7 @@ def test_singleton_provider_regardless_of_cluster_count():
             _binding(recipe_revision="bbb", virtual_model="b", cluster_candidates=["spark-c"]),
         ]
     )
-    assert document["providers"] == [{"name": "sparkrun", "type": "openai_compatible"}]
+    assert document["providers"] == [{"name": "sparkrun", "type": "sparkrun"}]
     assert SPARKRUN_PROVIDER == "sparkrun"
     assert {d["provider"] for d in document["deployments"]} == {SPARKRUN_PROVIDER}
 
@@ -141,6 +141,7 @@ def test_discovered_model_projects_a_warm_only_route():
         "provider": "sparkrun",
         "model": "deepseek-ai/DeepSeek-V4-Flash-0731",
         "native_protocols": ["openai"],
+        "capabilities": [],
         "endpoint_source": {"type": "discovered", "controller": "sparkrun"},
         "capability_policy": {"unknown": "try"},
     }

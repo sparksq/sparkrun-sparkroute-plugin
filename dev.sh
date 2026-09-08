@@ -98,8 +98,8 @@ _sparkrun_sparkroute_dev_setup() {
     # A shared shell may still point at an older ColdSnap development host.
     # Prefer this project's compatible local worktree when that host lacks the
     # public recipe catalog needed by the paired gateway.
-    if [[ ! -f "$checkout/src/sparkrun/api/_catalog.py" && -f "$script_dir/.dev/sparkrun/src/sparkrun/api/_catalog.py" ]]; then
-        echo "Selected host lacks the recipe catalog API; using this project's sparkrun checkout."
+    if ! { grep -q "def catalog_cluster_capacity(" "$checkout/src/sparkrun/api/_catalog.py" 2>/dev/null && grep -q "def native_api_options(" "$checkout/src/sparkrun/runtimes/base.py" 2>/dev/null; } && grep -q "def native_api_options(" "$script_dir/.dev/sparkrun/src/sparkrun/runtimes/base.py" 2>/dev/null; then
+        echo "Selected host lacks the current recipe catalog API; using this project's sparkrun checkout."
         checkout="$script_dir/.dev/sparkrun"
         managed_checkout=0
     fi
@@ -109,8 +109,8 @@ _sparkrun_sparkroute_dev_setup() {
         return 1
     fi
 
-    if [[ ! -f "$checkout/src/sparkrun/api/_catalog.py" ]]; then
-        echo "This sparkrun checkout lacks the recipe catalog API. Select the host commit in compat/host.toml via SPARKRUN_CHECKOUT." >&2
+    if ! grep -q "def catalog_cluster_capacity(" "$checkout/src/sparkrun/api/_catalog.py" 2>/dev/null || ! grep -q "def native_api_options(" "$checkout/src/sparkrun/runtimes/base.py" 2>/dev/null; then
+        echo "This sparkrun checkout lacks the current recipe catalog API. Select the host commit in compat/host.toml via SPARKRUN_CHECKOUT." >&2
         return 1
     fi
 

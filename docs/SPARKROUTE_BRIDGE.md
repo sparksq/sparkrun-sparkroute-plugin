@@ -14,8 +14,8 @@ diagnostics and logging use standard error. The command is intentionally omitted
 from `sparkrun --help`; its versioned JSON schema, rather than Click's command
 presentation, is the compatibility boundary.
 
-Schema version 3 supports `capabilities`, `resolve`, `ensure_ready`, `discover`,
-`status`, `stop`, and the catalog operations below. Requests carry a
+Schema version 4 supports `capabilities`, `resolve`, `ensure_ready`, `discover`,
+`status`, `stop`, `workloads`, `sleep`, `wake`, `workload_status`, and the catalog operations below. Requests carry a
 caller-generated `request_id`; every response repeats it. Both sides use strict
 schema decoding. Update the plugin and gateway together; earlier schemas are
 not accepted.
@@ -38,7 +38,7 @@ The bridge delegates to the public `sparkrun.api` catalog helpers:
 | --- | --- |
 | `catalog_registries` | Configured registry availability, visibility, and trust; no refresh. |
 | `catalog_clusters` | Named clusters, host counts, and the current default; no SSH. |
-| `catalog_search` | `query`, `registry`, `runtime`, `local_only`, `offset`, `limit`; cached results with exact source references and pagination. |
+| `catalog_search` | `query`, `registry`, `runtime`, `local_only`, `filters`, `offset`, `limit`; cached results with exact source references and pagination. |
 | `catalog_resolve` | `reference`, optional `overrides`; model, native protocols, revision, plugin requirements, and validation issues. |
 | `catalog_import` | Bounded single-document YAML `content`; returns an untrusted managed import preview. |
 | `catalog_retain` | `reference`; retains a saved import. |
@@ -52,7 +52,7 @@ registry caches and the control node's configuration-directory `recipes/` and
 directory. Explicit local paths refer to the control node, not the browser.
 Uploads are limited to 256 KiB. Unused staged uploads expire after seven days;
 saved imports remain available. Uploading does not grant trust or import
-auxiliary build files. Review and trust registries through sparkrun itself.
+auxiliary build files. Registry trust requires an explicit acknowledgement in the UI or CLI.
 
 SparkRoute exposes these through authenticated `POST /v1/sparkrun/catalog` and
 prepares an operator draft through `POST /v1/sparkrun/recipe-draft`. Read roles
@@ -165,7 +165,7 @@ A configuration tool can obtain the exact fingerprint, including overrides, by
 sending a `resolve` request. For example:
 
 ```json
-{"schema_version":3,"request_id":"resolve-1","operation":"resolve","binding":{"recipe":"@local/qwen","cluster_candidates":["spark-a"],"overrides":{"tensor_parallel":"2"}}}
+{"schema_version":4,"request_id":"resolve-1","operation":"resolve","binding":{"recipe":"@local/qwen","cluster_candidates":["spark-a"],"overrides":{"tensor_parallel":"2"}}}
 ```
 
 The returned `result.recipe_revision` is the value pinned in the gateway's
@@ -176,3 +176,21 @@ is never interpolated into a shell command, and recipes that require interactive
 trust are rejected instead of prompting. The intended deployment is a single
 local OSS gateway, normally on the cluster head node. It does not provide
 multi-replica coordination; that remains outside Sparkrun's local bridge.
+
+## Stage 4 operations
+
+`catalog_registry` applies an explicit add/remove/enable/disable/trust/untrust
+operation. `trust` requires `acknowledge_trust: true`; adding a registry does not
+clone or trust it. `catalog_capacity` starts a durable advisory cluster check.
+`catalog_plugins` reports installed/enabled/lifecycle availability without
+claiming a workload uses the plugin. Search returns declared metadata facets;
+resolve returns `hf_model`, safe `defaults`, metadata, and `native_api_options`
+from the runtime family alongside native families and Responses capability.
+
+`workloads` reports bounded receipt identities, plugin use, lifecycle state, and
+available actions. `sleep` and `wake` require a binding and exact job in
+`cluster_id`; `workload_status` verifies that job without changing its state.
+Sleep/wake run in detached workers sharing activation exclusion with
+`ensure_ready`, including overlapping candidate cluster sets. Uncertain replies
+remain non-ready. SparkRoute exposes these controls through authenticated
+`POST /v1/sparkrun/workload`, requiring `config_write` and a configured deployment.

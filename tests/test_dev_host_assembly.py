@@ -173,3 +173,19 @@ def test_incompatible_run_path_fix_preserves_previous_assembly(tmp_path: Path):
     assert (plugin / ".dev/sparkrun-with-sparkroute/run-path.txt").read_text() == "shared run\n"
     assert (host / "run-path.txt").read_text() == "different launch\n"
     assert not (plugin / ".dev/.sparkrun-with-sparkroute.tmp").exists()
+
+
+def test_assembly_combines_adjacent_coldsnap_without_changing_host(tmp_path: Path):
+    host = tmp_path / "host"
+    plugin = tmp_path / "plugin"
+    _write_host(host)
+    _write_plugin(plugin)
+    cold = tmp_path / "sparkrun-coldsnap-plugin/src/sparkrun/plugins/coldsnap"
+    cold.mkdir(parents=True)
+    (cold / "__init__.py").write_text("LIVE_COLDSNAP = True\n")
+    result = _assemble(host, plugin)
+    assert result.returncode == 0, result.stderr
+    assembled = plugin / ".dev/sparkrun-with-sparkroute"
+    assert (assembled / "src/sparkrun/plugins/coldsnap/__init__.py").read_text() == "LIVE_COLDSNAP = True\n"
+    assert "plugins.coldsnap" in (assembled / "src/sparkrun/core/features.py").read_text()
+    assert not (host / "src/sparkrun/plugins/coldsnap").exists()

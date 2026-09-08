@@ -135,7 +135,7 @@ def test_real_gateway_is_supervised_authenticated_and_serves_warm_aliases(tmp_pa
         # The actual host console script must accept the hidden JSON bridge.
         bridge = subprocess.run(
             [resolve_sparkrun_executable(), "gateway-bridge"],
-            input=json.dumps({"schema_version": 3, "request_id": "live-capabilities", "operation": "capabilities"}),
+            input=json.dumps({"schema_version": 4, "request_id": "live-capabilities", "operation": "capabilities"}),
             capture_output=True,
             text=True,
             timeout=30,
@@ -143,7 +143,7 @@ def test_real_gateway_is_supervised_authenticated_and_serves_warm_aliases(tmp_pa
         )
         payload = json.loads(bridge.stdout)
         assert payload["request_id"] == "live-capabilities"
-        assert payload["schema_version"] == 3
+        assert payload["schema_version"] == 4
         assert payload["ok"] is True
     finally:
         engine.stop()
