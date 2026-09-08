@@ -92,8 +92,9 @@ sets in the same lists, with generated entries grayed out and read-only.
 
 Generated deployments have display titles such as `sparkrun:spark-a:Qwen3-8B`,
 while their existing hashed `name` IDs remain unchanged. Recipe bindings use their
-configured cluster candidates (or `auto`). Discovery uses healthy endpoint cluster
-IDs to look up named clusters locally, falling back to the cluster ID or `discovered`.
+observed named clusters, matched by launch recipe fingerprint, then configured
+cluster candidates (or `unassigned`). Discovery uses healthy endpoint cluster IDs
+to look up named clusters locally, falling back to the cluster ID or `discovered`.
 Multiple clusters are comma-separated. An optional local display cache preserves
 discovery labels across CLI invocations; it never controls routing or workload
 identity. Existing discovery snapshots get cluster labels on the next sync.
@@ -103,10 +104,13 @@ separate discovery snapshot supplies routes for already-running workloads.
 Recipe resolution and launch use SparkRun's normal trust checks. Adopting an
 endpoint does not grant permission to stop a workload created by someone else.
 
-The extracted bridge currently speaks strict schema v1. Endpoint response keys
-must remain compatible with the Go decoder; optional metadata requires matching
-reader support. Request profiles and ColdSnap lifecycle capabilities will be
-introduced through explicit contract revisions.
+The bridge uses strict schema v2, exposing the optional named `cluster_name`.
+This is the integration's first use: there is no v1 compatibility or downgrade
+path. Update the plugin and pinned SparkRoute binary together. Named cluster
+metadata never changes routing IDs, placement, or stop ownership. Older job
+records without a named cluster remain unknown until explicitly repaired;
+overlapping host sets are not used to guess the original cluster. Request profiles
+and ColdSnap lifecycle capabilities will use further explicit contract revisions.
 
 ## Versions, tests, and releases
 
