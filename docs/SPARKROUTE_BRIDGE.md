@@ -1,6 +1,6 @@
 # LLM Gateway bridge
 
-Sparkrun ships a hidden, machine-oriented command used by SparkRoute, the OSS
+sparkrun ships a hidden, machine-oriented command used by SparkRoute, the OSS
 LLM gateway formed by converging the Scitrera LLM Gateway execution engine with
 Fox SparkRoute's model-policy engine:
 
@@ -20,12 +20,17 @@ caller-generated `request_id`; every response repeats it. Both sides use strict
 schema decoding. Update the plugin and gateway together; earlier schemas are
 not accepted.
 
-A binding contains a configured recipe reference, its SparkRun fingerprint,
+A binding contains a configured recipe reference, its sparkrun fingerprint,
 named cluster candidates, and bounded recipe overrides. Discovery, adoption,
 registration, and shutdown all enforce the selected cluster using authoritative
 job metadata. A job with an unknown cluster cannot satisfy a cluster restriction.
 
 ## Catalog and configuration
+
+SparkRoute requires `-sparkrun` to enable these admin routes and its workload
+controller. The plugin adds the flag automatically. `-sparkrun-command` chooses
+the bridge executable but does not opt in by itself. Shared admin/inference
+listeners classify `/v1/sparkrun/*` as admin traffic.
 
 The bridge delegates to the public `sparkrun.api` catalog helpers:
 
@@ -47,7 +52,7 @@ registry caches and the control node's configuration-directory `recipes/` and
 directory. Explicit local paths refer to the control node, not the browser.
 Uploads are limited to 256 KiB. Unused staged uploads expire after seven days;
 saved imports remain available. Uploading does not grant trust or import
-auxiliary build files. Review and trust registries through SparkRun itself.
+auxiliary build files. Review and trust registries through sparkrun itself.
 
 SparkRoute exposes these through authenticated `POST /v1/sparkrun/catalog` and
 prepares an operator draft through `POST /v1/sparkrun/recipe-draft`. Read roles
@@ -94,7 +99,7 @@ reconciles its recorded placement and persisted jobs before launching again.
 An unreachable previous job or uncertain interrupted post-launch hooks fails
 with an actionable recovery error instead of risking a duplicate launch.
 
-Operation state lives in `sparkroute/operations.sqlite3` under SparkRun's
+Operation state lives in `sparkroute/operations.sqlite3` under sparkrun's
 configuration directory, with bounded private `<operation-id>.log` files beside
 it. Terminal records and their logs expire after seven days. Dead-worker status
 is read-only; a new activation request resumes reconciliation. Idle timers are

@@ -76,7 +76,7 @@ _sparkrun_sparkroute_dev_setup() {
             echo "Cloning sparkrun branch $branch from $repository ..."
             git clone --single-branch --branch "$branch" "$repository" "$checkout" || return 1
         elif [[ -f "$checkout/.git" ]]; then
-            echo "Using project SparkRun worktree without changing its branch: $checkout"
+            echo "Using project sparkrun worktree without changing its branch: $checkout"
             managed_checkout=0
         else
             checkout_origin="$(git -C "$checkout" remote get-url origin)" || return 1
@@ -99,7 +99,7 @@ _sparkrun_sparkroute_dev_setup() {
     # Prefer this project's compatible local worktree when that host lacks the
     # public recipe catalog needed by the paired gateway.
     if [[ ! -f "$checkout/src/sparkrun/api/_catalog.py" && -f "$script_dir/.dev/sparkrun/src/sparkrun/api/_catalog.py" ]]; then
-        echo "Selected host lacks the recipe catalog API; using this project's SparkRun checkout."
+        echo "Selected host lacks the recipe catalog API; using this project's sparkrun checkout."
         checkout="$script_dir/.dev/sparkrun"
         managed_checkout=0
     fi
@@ -110,7 +110,7 @@ _sparkrun_sparkroute_dev_setup() {
     fi
 
     if [[ ! -f "$checkout/src/sparkrun/api/_catalog.py" ]]; then
-        echo "This SparkRun checkout lacks the recipe catalog API. Select the host commit in compat/host.toml via SPARKRUN_CHECKOUT." >&2
+        echo "This sparkrun checkout lacks the recipe catalog API. Select the host commit in compat/host.toml via SPARKRUN_CHECKOUT." >&2
         return 1
     fi
 
