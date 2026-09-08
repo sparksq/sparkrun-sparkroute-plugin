@@ -223,6 +223,18 @@ Responses use `{"reasoning":{"effort":"xhigh"}}`. These are explicit public
 virtual models sharing the original deployment. Parameters override caller
 values before translation; request structure and routing fields are protected.
 
+**Model Deployments → Model metadata** configures size (billions of parameters),
+context length, token prices per million tokens, and tags. Model Routing inherits
+these fields across each virtual model's targets. Recipe metadata supplies known
+size and effective context limits; live discovery can report the actual runtime
+context. Unknown values stay blank. Generated deployments remain read-only.
+
+**Virtual Models / Aliases** includes structured guardrails and standalone PII
+substitution. Policy edits also apply to the parent's request profiles. Request
+scope needs no persistent store; conversation scope uses encrypted SQLite
+mappings and requires caller authentication plus `X-SparkRoute-Thread-Id`.
+The default store lives beside the gateway configuration in a `.pii` directory.
+
 For ColdSnap recipes, idle policy can sleep instead of stop. Runtime controls
 show Status/Sleep/Wake only for receipt-backed jobs using an enabled ColdSnap
 lifecycle API. Sleep/wake changes require SparkRoute ownership and no active
