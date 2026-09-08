@@ -43,8 +43,13 @@ def _json(url, body=None, token=None):
     if token:
         headers["Authorization"] = "Bearer " + token
     request = urllib.request.Request(url, data=json.dumps(body).encode() if body else None, headers=headers)
-    with urllib.request.urlopen(request, timeout=15) as response:
-        return json.load(response)
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as error:
+        if error.code == 401:
+            raise
+        raise AssertionError("Gateway returned %s: %s" % (error.code, error.read().decode())) from error
 
 
 @pytest.mark.parametrize("shared_listener", [False, True])

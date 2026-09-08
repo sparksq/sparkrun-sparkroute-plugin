@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 from unittest import mock
+from types import SimpleNamespace
 
 import pytest
 
@@ -394,7 +395,11 @@ def test_base_runtime_declares_only_openai():
     """Fail-closed: a runtime opts into a dialect, never inherits one."""
     from sparkrun.runtimes.base import RuntimePlugin
 
-    assert RuntimePlugin.native_protocols(mock.Mock(), mock.Mock()) == ["openai"]
+    class DefaultRuntime(RuntimePlugin):
+        def generate_command(self, *args, **kwargs):
+            return ""
+
+    assert DefaultRuntime().native_protocols(SimpleNamespace(metadata={})) == ["openai"]
 
 
 def test_friendly_titles_preserve_deployment_ids_and_binding_revisions():
