@@ -42,7 +42,9 @@ pytest
 reviewed host compatibility hooks there, and links this checkout's live plugin
 source into its in-tree package. `compat/host.toml` records the tested host base;
 `compat/sparkrun-host-seams.patch` carries the generic hooks awaiting upstream
-integration. A host that already exposes the hooks skips the patch. An
+integration. `compat/sparkrun-run-path.patch` keeps proxy load on the normal run
+API and preserves resolved clusters through run, proxy load, and benchmark.
+Each patch is skipped when its changes are already integrated. An
 incompatible host fails before replacing the existing development assembly.
 The original checkout is never fetched, switched, or edited. The patch is a
 development aid; production SparkRun incorporates the host changes itself.

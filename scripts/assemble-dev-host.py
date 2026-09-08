@@ -93,6 +93,28 @@ def _ignore(_directory: str, names: list[str]) -> set[str]:
     return set(names).intersection(_IGNORED_NAMES)
 
 
+def _apply_run_path_fix(host: Path, plugin_root: Path) -> None:
+    """Keep proxy load on the normal run API in older development hosts."""
+    patch = plugin_root / "compat/sparkrun-run-path.patch"
+    if not patch.is_file():
+        return
+    try:
+        subprocess.run(["git", "-C", str(host), "init", "--quiet"], check=True, capture_output=True, text=True)
+        command = ["git", "-C", str(host), "-c", "core.autocrlf=false", "apply"]
+        applied = subprocess.run([*command, "--reverse", "--check", str(patch)], capture_output=True, text=True)
+        if applied.returncode == 0:
+            return
+        subprocess.run([*command, "--check", str(patch)], check=True, capture_output=True, text=True)
+        subprocess.run([*command, str(patch)], check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as error:
+        raise AssemblyError(
+            "shared run-path compatibility patch does not apply; select the commit in compat/host.toml "
+            "or a host with that fix integrated: %s" % error.stderr.strip()
+        ) from error
+    finally:
+        _remove_path(host / ".git")
+
+
 def _append_if_missing(path: Path, pattern: re.Pattern[str], addition: str) -> None:
     contents = path.read_text(encoding="utf-8")
     if pattern.search(contents):
@@ -140,6 +162,7 @@ def assemble(*, host: Path, plugin_root: Path, destination: Path, copy_plugin: b
         shutil.copytree(host, temporary, symlinks=True, ignore=_ignore)
 
         _apply_host_seams(temporary, plugin_root)
+        _apply_run_path_fix(temporary, plugin_root)
 
         assembled_plugin = temporary / PLUGIN_MODULE_PATH
         _remove_path(assembled_plugin)

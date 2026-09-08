@@ -3,3 +3,5 @@
 repository = "https://github.com/spark-arena/sparkrun.git"
 commit = "44bd24af4e885d31e9ecff0d9e1a2921f9e6fdec"
 patch = "sparkrun-host-seams.patch"
+# Shared run API / cluster propagation fixes, applied after the generic hooks.
+run_path_patch = "sparkrun-run-path.patch"

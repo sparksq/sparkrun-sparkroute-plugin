@@ -1,0 +1,246 @@
+diff --git a/src/sparkrun/api/_benchmark.py b/src/sparkrun/api/_benchmark.py
+index 29a1b85..f318205 100644
+--- a/src/sparkrun/api/_benchmark.py
++++ b/src/sparkrun/api/_benchmark.py
+@@ -547,6 +547,7 @@ def _execute_benchmark(
+         run_options = api.RunOptions(
+             recipe=recipe,
+             hosts=tuple(host_list),
++            cluster=cluster_cfg.name,
+             overrides=dict(overrides),
+             solo=solo,
+             dry_run=dry_run,
+@@ -558,9 +559,8 @@ def _execute_benchmark(
+             transfer_interface=effective_transfer_interface,
+             cache_dir=remote_cache_dir,
+             local_cache_dir=local_cache_dir,
+-            # Pass the cluster's shared-cache prefs explicitly: this launch
+-            # uses explicit hosts and so loses the named-cluster identity
+-            # that launch_inference would otherwise read them from.
++            # Retain the resolved transfer preferences when explicit hosts
++            # override the cluster's host list.
+             preserve_model_perms=cluster_cfg.preserve_model_perms,
+             skip_model_fan_out=cluster_cfg.skip_model_fan_out,
+             rootful=rootful,
+@@ -595,7 +595,7 @@ def _execute_benchmark(
+             overrides,
+             host_list,
+             solo=solo,
+-            cluster=cluster_name,
++            cluster=cluster_cfg.name,
+             sctx=sctx,
+             emitter=emitter,
+         )
+diff --git a/src/sparkrun/api/_models.py b/src/sparkrun/api/_models.py
+index 3e4a28b..a85e405 100644
+--- a/src/sparkrun/api/_models.py
++++ b/src/sparkrun/api/_models.py
+@@ -112,6 +112,11 @@ class RunOptions:
+     # Networking / runtime ports.
+     port: int | None = None
+     """Override the inference serve port."""
++    auto_port: bool = False
++    """Select the next available serve port when the requested port is busy.
++
++    Enabled by ``proxy load``. The assigned port is returned in ``RunResult``;
++    it does not change the requested recipe's identity or fingerprint."""
+     ray_port: int = 46379
+     """Ray GCS port (vllm-ray runtime)."""
+     dashboard_port: int = 8265
+@@ -154,8 +159,7 @@ class RunOptions:
+     preserve_model_perms: bool | None = None
+     """Model-rsync permission preservation override.  ``None`` → derive from
+     the resolved cluster's ``distribution.model.preserve_perms``; an explicit
+-    bool wins (used by the benchmark flow, which launches with explicit hosts
+-    and loses the named-cluster identity)."""
++    bool wins, including when the caller restricts a named cluster's hosts."""
+     skip_model_fan_out: bool | None = None
+     """Skip the per-host model rsync fan-out (shared cache).  ``None`` → derive
+     from the cluster's ``distribution.model.skip_fan_out``; explicit bool wins."""
+diff --git a/src/sparkrun/api/_run.py b/src/sparkrun/api/_run.py
+index 5be29c6..2fccbfa 100644
+--- a/src/sparkrun/api/_run.py
++++ b/src/sparkrun/api/_run.py
+@@ -464,6 +464,7 @@ def run(options: RunOptions, *, sctx: "SparkrunContext | None" = None, plan: Run
+         "dry_run": options.dry_run,
+         "detached": options.detached,
+         "follow": options.follow,
++        "auto_port": options.auto_port,
+         "ray_port": options.ray_port,
+         "dashboard_port": options.dashboard_port,
+         "dashboard": options.dashboard,
+diff --git a/src/sparkrun/cli/_benchmark.py b/src/sparkrun/cli/_benchmark.py
+index da1ed1e..e5d886a 100644
+--- a/src/sparkrun/cli/_benchmark.py
++++ b/src/sparkrun/cli/_benchmark.py
+@@ -607,6 +607,10 @@ def _run_benchmark(
+     if submission_id_for_extras:
+         state_extras["submission_id"] = submission_id_for_extras
+ 
++    from ._common import resolve_cluster_config
++
++    cluster_cfg = resolve_cluster_config(cluster_name, hosts, hosts_file, cluster_mgr)
++
+     opts = BenchmarkOptions(
+         recipe=recipe_name,
+         category=category,
+@@ -618,7 +622,7 @@ def _run_benchmark(
+         # Both go through ``parse_host_list`` so neither form can reach
+         # ``BenchmarkOptions.hosts`` (a ``tuple[str, ...]``) as a character split.
+         hosts=tuple(parse_host_list(host_list or hosts)),
+-        cluster=cluster_name,
++        cluster=cluster_cfg.name,
+         overrides=_overrides_from_flags,
+         resume=resume_mode,
+         skip_run=skip_run,
+diff --git a/src/sparkrun/cli/_proxy.py b/src/sparkrun/cli/_proxy.py
+index a7af12f..d5bdb2a 100644
+--- a/src/sparkrun/cli/_proxy.py
++++ b/src/sparkrun/cli/_proxy.py
+@@ -18,7 +18,6 @@ from ._common import (
+     recipe_override_options,
+     report_launch_validation,
+     resolve_cluster_config,
+-    resolve_effective_hosts_for_recipe,
+     with_host_context,
+ )
+ 
+@@ -592,8 +591,8 @@ def load_cmd(
+ 
+       sparkrun proxy load qwen3-1.7b-vllm --solo --gpu-mem 0.8
+     """
++    from sparkrun import api
+     from sparkrun.core.bootstrap import get_runtime
+-    from sparkrun.core.launcher import launch_inference
+ 
+     from ._common import _get_context
+ 
+@@ -602,7 +601,7 @@ def load_cmd(
+     config = sctx.config
+ 
+     # Load recipe (defer resolution until overrides are built)
+-    recipe, _recipe_path, registry_mgr = _load_recipe(config, recipe_name, resolve=False)
++    recipe, _recipe_path, _registry_mgr = _load_recipe(config, recipe_name, resolve=False, retry_after_update=True)
+ 
+     # Build overrides and resolve runtime (overrides may influence resolution)
+     recipe, overrides = _apply_recipe_overrides(
+@@ -635,41 +634,39 @@ def load_cmd(
+     if validation_failed:
+         sys.exit(1)
+ 
+-    # Node count validation, max_nodes enforcement, and solo mode determination
+-    host_list, is_solo = resolve_effective_hosts_for_recipe(
+-        host_list,
+-        recipe,
+-        overrides,
+-        cluster_def=None,
+-        sctx=sctx,
+-        solo=solo,
+-    )
+-
+     # Resolve cache dir, transfer mode, and transfer interface from cluster config
+     cluster_cfg = resolve_cluster_config(cluster_name, hosts, hosts_file, cluster_mgr)
+     local_cache_dir, remote_cache_dir, effective_transfer_mode, effective_transfer_interface = cluster_cfg.resolve_transfer_config(config)
+ 
+-    # Launch via shared pipeline (auto_port=True for conflict avoidance)
++    # Preserve the resolved cluster alongside the full candidate host set.
++    # The normal run API owns placement, execution strategies, job metadata,
++    # and fingerprints; the proxy only changes the port/follow defaults.
+     click.echo("Loading model: %s" % recipe_name)
+-    result = launch_inference(
++    run_options = api.RunOptions(
+         recipe=recipe,
+-        runtime=runtime,
+-        host_list=host_list,
+-        overrides=overrides,
+-        sctx=sctx,
+-        is_solo=is_solo,
++        hosts=tuple(host_list),
++        cluster=cluster_cfg.name,
++        overrides=dict(overrides),
++        solo=solo,
+         cache_dir=remote_cache_dir,
+         local_cache_dir=local_cache_dir,
+         transfer_mode=effective_transfer_mode,
+         transfer_interface=effective_transfer_interface,
+-        registry_mgr=registry_mgr,
++        topology=cluster_cfg.topology,
+         auto_port=True,
+         dry_run=dry_run,
+         detached=True,
+-        # non-root user and non-privileged
+-        rootless=True,
+-        auto_user=True,
++        follow=False,
+     )
++    try:
++        run_plan = api.plan(run_options, sctx=sctx)
++        for note in run_plan.notes:
++            click.echo(note)
++        run_result = api.run(run_options, sctx=sctx, plan=run_plan)
++    except api.SparkrunError as exc:
++        click.echo("Error: %s" % exc, err=True)
++        sys.exit(1)
++    result = run_result.launch_result
+ 
+     if result.rc != 0:
+         click.echo("Error: failed to load model (exit code %d)." % result.rc, err=True)
+@@ -677,10 +674,13 @@ def load_cmd(
+ 
+     click.echo("Model loaded: %s (port %d)" % (recipe_name, result.serve_port))
+ 
++    if recipe.post_exec or recipe.post_commands:
++        from sparkrun.core.launcher import post_launch_lifecycle
++
++        post_launch_lifecycle(result, remote_cache_dir=result.effective_cache_dir, dry_run=dry_run, progress=sctx.progress)
++
+     if not dry_run:
+         # Try to register with a running proxy.
+-        from sparkrun import api
+-
+         proxy_status = api.proxy.status(sctx=sctx)
+         if proxy_status.running:
+             # Discovery's liveness test is an HTTP probe of /v1/models, so
+@@ -704,7 +704,12 @@ def load_cmd(
+                     # Not a plain sync: a catalog-driven gateway persists an
+                     # activatable route here.  A discovery-driven one (LiteLLM)
+                     # falls through to exactly the sync this used to call.
+-                    synced = api.proxy.register_loaded_model(recipe_name, sctx=sctx)
++                    synced = api.proxy.register_loaded_model(
++                        recipe_name,
++                        overrides=run_options.overrides,
++                        cluster=run_plan.cluster.name or None,
++                        sctx=sctx,
++                    )
+                 except api.proxy.ProxyUpdateFailed as exc:
+                     click.echo("Error: %s" % exc, err=True)
+                     sys.exit(1)
+@@ -730,6 +735,10 @@ def _warn_not_registered(readiness, proxy_status) -> None:
+         click.echo("  Check the logs: sparkrun logs <cluster-id>", err=True)
+         return
+ 
++    if readiness.reason in {"inference", "cancelled"}:
++        click.echo("Warning: startup readiness did not complete (%s); model was not registered." % readiness.reason, err=True)
++        return
++
+     click.echo(
+         "Warning: server at %s is still not answering — it may need longer to load." % readiness.health_url,
+         err=True,
+diff --git a/src/sparkrun/cli/_run.py b/src/sparkrun/cli/_run.py
+index 269c398..cbdd93c 100644
+--- a/src/sparkrun/cli/_run.py
++++ b/src/sparkrun/cli/_run.py
+@@ -443,10 +443,10 @@ def run(
+ 
+     # Resolve the named cluster definition when one is in play.  Carries
+     # per-host hardware metadata so downstream code can compute placement,
+-    # fit, and per-host backend selection.  Falls back to None for
+-    # explicit --hosts / --hosts-file (host-list-only path).
++    # fit, and per-host backend selection. Explicit hosts can restrict a
++    # named cluster without discarding its identity or settings.
+     cluster_def = None
+-    if cluster_mgr is not None and not hosts and not hosts_file:
++    if cluster_mgr is not None and (cluster_name or (not hosts and not hosts_file)):
+         _name = cluster_name or cluster_mgr.get_default()
+         if _name:
+             try:
