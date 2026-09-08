@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import subprocess
 
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "https://github.com/spark-arena/sparkrun.git"
@@ -30,6 +31,8 @@ def _checkout(path: Path) -> None:
     (path / "src/sparkrun/runtimes/base.py").write_text("def native_api_options(): pass\n")
     (path / "src/sparkrun/api").mkdir()
     (path / "src/sparkrun/api/_catalog.py").write_text("def catalog_cluster_capacity(): pass\n")
+    (path / "src/sparkrun/core").mkdir()
+    (path / "src/sparkrun/core/readiness.py").write_text('OPENAI_RESPONSES_STREAM = "openai-responses-stream-v1"\n')
 
 
 def _development_tree(tmp_path: Path) -> tuple[Path, Path, dict[str, str]]:
@@ -217,7 +220,7 @@ def test_copied_assembly_preserves_source_and_does_not_require_symlinks(tmp_path
     (plugin / "plugin.toml").write_text("name = 'sparkroute'\n")
     host = tmp_path / "host"
     _checkout(host)
-    (host / "src/sparkrun/core").mkdir()
+    (host / "src/sparkrun/core").mkdir(exist_ok=True)
     (host / module.FEATURES_PATH).write_text("# fixture features\n")
     (host / module.IN_TREE_PLUGINS_PATH).write_text("# fixture loader\n")
     destination = plugin / ".dev" / module.ASSEMBLY_NAME
@@ -256,14 +259,15 @@ def test_binary_preparation_failure_does_not_report_success(tmp_path):
     assert not Path(env["FAKE_SPARKRUN_LOG"]).exists()
 
 
-def test_old_shared_host_uses_compatible_project_checkout(tmp_path: Path):
+@pytest.mark.parametrize("missing", ["api/_catalog.py", "core/readiness.py"])
+def test_old_shared_host_uses_compatible_project_checkout(tmp_path: Path, missing):
     plugin, git_log, env = _development_tree(tmp_path)
     project_api = plugin / ".dev/sparkrun/src/sparkrun/api"
     project_api.mkdir(exist_ok=True)
     (project_api / "_catalog.py").write_text("def catalog_cluster_capacity(): pass\n")
     old = tmp_path / "old-host"
     _checkout(old)
-    (old / "src/sparkrun/api/_catalog.py").unlink()
+    (old / "src/sparkrun" / missing).unlink()
     result = subprocess.run(
         ["bash", "-c", 'source "$PLUGIN_ROOT/dev.sh" && echo "selected=$SPARKRUN_CHECKOUT"'],
         env={**env, "PLUGIN_ROOT": str(plugin), "SPARKRUN_CHECKOUT": str(old)},
@@ -271,7 +275,7 @@ def test_old_shared_host_uses_compatible_project_checkout(tmp_path: Path):
         text=True,
     )
     assert result.returncode == 0, result.stderr
-    assert "Selected host lacks the current recipe catalog API" in result.stdout
+    assert "Selected host lacks current catalog and native API support" in result.stdout
     assert "selected=" + str(plugin / ".dev/sparkrun") in result.stdout
 
 

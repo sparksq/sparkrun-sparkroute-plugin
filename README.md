@@ -193,11 +193,21 @@ the archive and repairs a modified extracted executable before returning it.
 
 The provider type is `sparkrun`; each deployment carries its native APIs. The
 recipe editor exposes runtime-family choices: vLLM offers Chat Completions,
-Responses, and Anthropic Messages. Known version tags select supported defaults;
-unknown/custom images remain conservative. Recipes can declare
+Responses, and Anthropic Messages by default, including nightly/custom images;
+recognized vLLM versions older than 0.12.0 default to Chat Completions only.
+Recipes can narrow or override these defaults with
 `metadata.native_apis: [chat_completions, responses, messages]`. Discovered jobs
 resolve declarations from their saved recipe, and jobs sharing a model advertise
 only their common APIs. Optional model capabilities remain permissive by default.
+
+The same recipe declaration constrains sparkrun readiness. `readiness.inference_style`
+can select `openai-chat-stream-v1`, `openai-responses-stream-v1`, or
+`anthropic-messages-stream-v1` for vLLM; `auto` prefers Chat when declared.
+Readiness checks one selected API, not every advertised API. The UI's deployment
+API override affects SparkRoute routing only; configure recipe metadata and
+readiness in recipe YAML to change launch behavior. After changing runtime
+defaults, re-source `dev.sh` and run `sparkrun proxy sync` to refresh existing
+deployments without reloading their workloads.
 
 The recipe's `defaults.served_model_name`, then its Hugging Face model name,
 initializes the public name. Advanced launch settings support ordered fallback

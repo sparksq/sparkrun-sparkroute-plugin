@@ -10,6 +10,12 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     exit 1
 fi
 
+_sparkrun_sparkroute_host_supported() {
+    grep -q "def catalog_cluster_capacity(" "$1/src/sparkrun/api/_catalog.py" 2>/dev/null &&
+        grep -q "def native_api_options(" "$1/src/sparkrun/runtimes/base.py" 2>/dev/null &&
+        grep -q '^OPENAI_RESPONSES_STREAM =' "$1/src/sparkrun/core/readiness.py" 2>/dev/null
+}
+
 _sparkrun_sparkroute_dev_setup() {
     local script_dir
     local venv_dir
@@ -97,9 +103,9 @@ _sparkrun_sparkroute_dev_setup() {
 
     # A shared shell may still point at an older ColdSnap development host.
     # Prefer this project's compatible local worktree when that host lacks the
-    # public recipe catalog needed by the paired gateway.
-    if ! { grep -q "def catalog_cluster_capacity(" "$checkout/src/sparkrun/api/_catalog.py" 2>/dev/null && grep -q "def native_api_options(" "$checkout/src/sparkrun/runtimes/base.py" 2>/dev/null; } && grep -q "def native_api_options(" "$script_dir/.dev/sparkrun/src/sparkrun/runtimes/base.py" 2>/dev/null; then
-        echo "Selected host lacks the current recipe catalog API; using this project's sparkrun checkout."
+    # recipe catalog and shared native API/readiness support.
+    if ! _sparkrun_sparkroute_host_supported "$checkout" && _sparkrun_sparkroute_host_supported "$script_dir/.dev/sparkrun"; then
+        echo "Selected host lacks current catalog and native API support; using this project's sparkrun checkout."
         checkout="$script_dir/.dev/sparkrun"
         managed_checkout=0
     fi
@@ -109,8 +115,8 @@ _sparkrun_sparkroute_dev_setup() {
         return 1
     fi
 
-    if ! grep -q "def catalog_cluster_capacity(" "$checkout/src/sparkrun/api/_catalog.py" 2>/dev/null || ! grep -q "def native_api_options(" "$checkout/src/sparkrun/runtimes/base.py" 2>/dev/null; then
-        echo "This sparkrun checkout lacks the current recipe catalog API. Select the host commit in compat/host.toml via SPARKRUN_CHECKOUT." >&2
+    if ! _sparkrun_sparkroute_host_supported "$checkout"; then
+        echo "This sparkrun checkout lacks current catalog and native API support. Select the host commit in compat/host.toml via SPARKRUN_CHECKOUT." >&2
         return 1
     fi
 
@@ -197,7 +203,7 @@ _sparkrun_sparkroute_dev_setup() {
 
 _sparkrun_sparkroute_dev_cleanup() {
     local status="$1"
-    unset -f _sparkrun_sparkroute_dev_setup _sparkrun_sparkroute_dev_cleanup
+    unset -f _sparkrun_sparkroute_dev_setup _sparkrun_sparkroute_dev_cleanup _sparkrun_sparkroute_host_supported
     return "$status"
 }
 
