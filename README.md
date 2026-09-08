@@ -87,7 +87,16 @@ Go checkout; it is separate from the eventual verified release archive pins.
 SparkRun's `proxy.yaml` bindings project into the gateway's `sparkrun` managed
 configuration set. The `operator` set remains independently editable through
 the SparkRoute console. Reconciliation replaces only the SparkRun set under
-revision checks and applies without a gateway restart.
+revision checks and applies without a gateway restart. The console presents both
+sets in the same lists, with generated entries grayed out and read-only.
+
+Generated deployments have display titles such as `sparkrun:spark-a:Qwen3-8B`,
+while their existing hashed `name` IDs remain unchanged. Recipe bindings use their
+configured cluster candidates (or `auto`). Discovery uses healthy endpoint cluster
+IDs to look up named clusters locally, falling back to the cluster ID or `discovered`.
+Multiple clusters are comma-separated. An optional local display cache preserves
+discovery labels across CLI invocations; it never controls routing or workload
+identity. Existing discovery snapshots get cluster labels on the next sync.
 
 The durable bindings remain present while their models are offline. The
 separate discovery snapshot supplies routes for already-running workloads.
