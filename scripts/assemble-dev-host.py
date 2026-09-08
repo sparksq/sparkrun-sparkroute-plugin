@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: 2026 Fox Engine Ltd
 # SPDX-License-Identifier: AGPL-3.0-only
 
-"""Assemble a disposable sparkrun tree with the live SparkRoute source in-tree."""
+"""Assemble a disposable sparkrun tree with SparkRoute and optional coldsnap."""
 
 from __future__ import annotations
 
@@ -22,6 +22,8 @@ ASSEMBLY_NAME = "sparkrun-with-sparkroute"
 PLUGIN_MODULE_PATH = Path("src/sparkrun/plugins/sparkroute")
 FEATURES_PATH = Path("src/sparkrun/core/features.py")
 IN_TREE_PLUGINS_PATH = Path("src/sparkrun/core/in_tree_plugins.py")
+COLDSNAP_REPOSITORY = "https://github.com/sparksq/sparkrun-coldsnap-plugin.git"
+COLDSNAP_MODULE_PATH = Path("src/sparkrun/plugins/coldsnap")
 _IGNORED_NAMES = {
     ".dev",
     ".git",
@@ -130,6 +132,41 @@ def _remove_path(path: Path) -> None:
         shutil.rmtree(path)
 
 
+def _managed_coldsnap_checkout(plugin_root: Path) -> Path:
+    """Fetch a disposable public clone without changing local plugin checkouts."""
+    checkout = plugin_root / ".dev/sparkrun-coldsnap-plugin"
+    branch = os.environ.get("SPARKRUN_COLDSNAP_BRANCH", "main")
+
+    def git(*args: str) -> str:
+        try:
+            result = subprocess.run(["git", *args], check=True, capture_output=True, text=True, timeout=120)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+            detail = error.stderr.strip() if isinstance(error, subprocess.CalledProcessError) else "timed out"
+            raise AssemblyError("could not prepare coldsnap checkout: %s" % detail) from error
+        return result.stdout.strip()
+
+    git("check-ref-format", "--branch", branch)
+    if checkout.is_symlink() or (checkout.exists() and not (checkout / ".git").is_dir()):
+        raise AssemblyError(
+            "managed coldsnap path must be a standalone Git clone: %s; use SPARKRUN_COLDSNAP_CHECKOUT for local worktrees" % checkout
+        )
+    if checkout.exists():
+        if git("-C", str(checkout), "config", "--get", "remote.origin.url") != COLDSNAP_REPOSITORY:
+            raise AssemblyError("managed coldsnap checkout has an unexpected origin: %s" % checkout)
+        if git("-C", str(checkout), "status", "--porcelain"):
+            raise AssemblyError("managed coldsnap checkout has local changes; refusing to update: %s" % checkout)
+        print("Updating coldsnap branch %s from %s ..." % (branch, COLDSNAP_REPOSITORY), flush=True)
+        git("-C", str(checkout), "fetch", "--prune", "origin", branch)
+        git("-C", str(checkout), "switch", "--detach", "FETCH_HEAD")
+    else:
+        checkout.parent.mkdir(parents=True, exist_ok=True)
+        print("Cloning coldsnap branch %s from %s ..." % (branch, COLDSNAP_REPOSITORY), flush=True)
+        git("clone", "--single-branch", "--branch", branch, COLDSNAP_REPOSITORY, str(checkout))
+    commit = git("-C", str(checkout), "rev-parse", "HEAD")
+    print("Using fetched coldsnap %s at %s" % (commit[:12], checkout), flush=True)
+    return checkout
+
+
 def assemble(*, host: Path, plugin_root: Path, destination: Path, copy_plugin: bool = False) -> Path:
     """Build and return the disposable in-tree development checkout."""
     host = host.expanduser().resolve()
@@ -157,6 +194,26 @@ def assemble(*, host: Path, plugin_root: Path, destination: Path, copy_plugin: b
             "select a compatible branch such as develop-next (missing: %s)" % ", ".join(missing)
         )
 
+    cold_mode = os.environ.get("SPARKRUN_DEV_COLDSNAP", "").strip()
+    if cold_mode not in ("", "0", "1"):
+        raise AssemblyError("SPARKRUN_DEV_COLDSNAP must be 1 (fetch), 0 (omit), or unset (local checkout discovery)")
+    cold_setting = os.environ.get("SPARKRUN_COLDSNAP_CHECKOUT", "")
+    cold_disabled = cold_mode == "0" or cold_setting == "none"
+    cold_source = None
+    if not cold_disabled:
+        if cold_setting:
+            cold_root = Path(cold_setting).expanduser().resolve()
+        elif cold_mode == "1":
+            cold_root = _managed_coldsnap_checkout(plugin_root)
+        else:
+            cold_root = plugin_root.parent / "sparkrun-coldsnap-plugin"
+        candidate = cold_root / COLDSNAP_MODULE_PATH
+        if (candidate / "__init__.py").is_file():
+            cold_source = candidate
+            print("Including coldsnap plugin from %s" % cold_root, flush=True)
+        elif cold_setting or cold_mode == "1":
+            raise AssemblyError("selected coldsnap checkout does not contain src/sparkrun/plugins/coldsnap/__init__.py: %s" % cold_root)
+
     temporary = destination.with_name(".%s.tmp" % destination.name)
     _remove_path(temporary)
     try:
@@ -173,13 +230,12 @@ def assemble(*, host: Path, plugin_root: Path, destination: Path, copy_plugin: b
         else:
             assembled_plugin.symlink_to(plugin_source, target_is_directory=True)
 
-        # Optionally include the adjacent canonical ColdSnap plugin for combined
-        # development. This changes only the disposable host, never either repo.
-        cold_setting = os.environ.get("SPARKRUN_COLDSNAP_CHECKOUT", "")
-        cold_root = Path(cold_setting).expanduser() if cold_setting else plugin_root.parent / "sparkrun-coldsnap-plugin"
-        cold_source = cold_root / "src/sparkrun/plugins/coldsnap"
-        if cold_setting != "none" and cold_source.is_dir():
-            cold_target = temporary / "src/sparkrun/plugins/coldsnap"
+        # Replace only the disposable host's plugin. Explicit omission also
+        # removes a copy that might already be vendored in the selected host.
+        cold_target = temporary / COLDSNAP_MODULE_PATH
+        if cold_disabled:
+            _remove_path(cold_target)
+        elif cold_source is not None:
             _remove_path(cold_target)
             if copy_plugin or sys.platform == "win32":
                 shutil.copytree(cold_source, cold_target, ignore=_ignore)
@@ -195,9 +251,6 @@ def assemble(*, host: Path, plugin_root: Path, destination: Path, copy_plugin: b
                 re.compile(r'[\'"]coldsnap[\'"]\s*[:\]]'),
                 '\nIN_TREE_PLUGIN_FEATURES["coldsnap"] = "plugins.coldsnap"\n',
             )
-        elif cold_setting and cold_setting != "none":
-            raise AssemblyError("SPARKRUN_COLDSNAP_CHECKOUT does not contain the ColdSnap plugin")
-
         _append_if_missing(temporary / FEATURES_PATH, _FEATURE_PATTERN, _FEATURE_BINDING)
         _append_if_missing(temporary / IN_TREE_PLUGINS_PATH, _BINDING_PATTERN, _LOADER_BINDING)
 

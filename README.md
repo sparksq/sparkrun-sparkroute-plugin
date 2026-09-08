@@ -250,10 +250,37 @@ enabled, recipe-required, and actually-used plugins are reported separately.
 ColdSnap's `control_job` API checks the saved job ID, hosts, and capture receipt.
 A lost sleep reply blocks cached admission until its state is verified.
 
-The disposable development assembly includes an adjacent
-`sparkrun-coldsnap-plugin` checkout when present. Override its location with
-`SPARKRUN_COLDSNAP_CHECKOUT`, or set it to `none` to omit it. This does not install
-ColdSnap into the original sparkrun checkout.
+To test sparkrun, coldsnap, and SparkRoute together using the public coldsnap
+plugin repository:
+
+```sh
+export SPARKRUN_DEV_COLDSNAP=1
+source dev.sh
+```
+
+This clones `https://github.com/sparksq/sparkrun-coldsnap-plugin.git` into
+`.dev/sparkrun-coldsnap-plugin`, then includes it in the same in-tree development
+host as SparkRoute. Each subsequent `source dev.sh` fetches the selected branch
+again; `SPARKRUN_COLDSNAP_BRANCH` defaults to `main`. Setup reports the resolved
+commit. The managed clone must be clean and retain its expected origin; a fetch
+failure stops setup instead of silently using stale plugin code.
+
+An explicit `SPARKRUN_COLDSNAP_CHECKOUT=/path/to/sparkrun-coldsnap-plugin` takes
+precedence and uses that local source without fetching or switching it. The
+resolved managed path is not exported as an override, so changing the branch on
+a later setup takes effect. If `SPARKRUN_DEV_COLDSNAP` is unset, the existing
+adjacent-checkout discovery remains available. Set `SPARKRUN_DEV_COLDSNAP=0` or
+`SPARKRUN_COLDSNAP_CHECKOUT=none` to omit coldsnap, including any copy already
+vendored in the selected host. These choices change only the disposable assembly.
+The normal `plugins.coldsnap` feature flag still controls runtime loading; an
+explicit feature override in your configuration or environment is respected.
+SparkRoute's workload sleep/wake controls also require the selected coldsnap
+checkout to expose its exact-job lifecycle API; the coldsnap CLI can be available
+even when that API is absent.
+
+After changing the assembly, restart an already-running proxy with
+`sparkrun proxy start --restart` so its bridge subprocesses use the same plugin
+set. Setup does not start, stop, sleep, or wake model workloads.
 
 ## Trace settings
 

@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 #
 # SparkRoute plugin development setup. Usage: source dev.sh
+# Optional combined host: export SPARKRUN_DEV_COLDSNAP=1 before sourcing.
+# The assembler fetches coldsnap unless SPARKRUN_COLDSNAP_CHECKOUT is supplied.
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     echo "dev.sh must be sourced: source dev.sh" >&2
@@ -136,7 +138,7 @@ _sparkrun_sparkroute_dev_setup() {
         uv venv "$venv_dir" || return 1
     fi
 
-    echo "Assembling the live SparkRoute source into a disposable sparkrun tree ..."
+    echo "Assembling SparkRoute and any selected coldsnap plugin into a disposable sparkrun tree ..."
     "$venv_dir/bin/python" "$script_dir/scripts/assemble-dev-host.py" \
         --host "$checkout" --destination "$dev_checkout" || return 1
     export SPARKRUN_DEV_CHECKOUT="$dev_checkout"

@@ -16,6 +16,12 @@ ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "https://github.com/spark-arena/sparkrun.git"
 
 
+@pytest.fixture(autouse=True)
+def _isolate_coldsnap_settings(monkeypatch):
+    for name in ("SPARKRUN_DEV_COLDSNAP", "SPARKRUN_COLDSNAP_CHECKOUT", "SPARKRUN_COLDSNAP_BRANCH"):
+        monkeypatch.delenv(name, raising=False)
+
+
 def _executable(path: Path, body: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("#!/usr/bin/env bash\n" + body, encoding="utf-8")
