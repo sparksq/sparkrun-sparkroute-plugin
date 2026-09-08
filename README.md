@@ -229,11 +229,18 @@ these fields across each virtual model's targets. Recipe metadata supplies known
 size and effective context limits; live discovery can report the actual runtime
 context. Unknown values stay blank. Generated deployments remain read-only.
 
-**Virtual Models / Aliases** includes structured guardrails and standalone PII
-substitution. Policy edits also apply to the parent's request profiles. Request
-scope needs no persistent store; conversation scope uses encrypted SQLite
-mappings and requires caller authentication plus `X-SparkRoute-Thread-Id`.
-The default store lives beside the gateway configuration in a `.pii` directory.
+**PII Privacy** and **Guardrails**, after **Model Routing** in Configuration,
+contain reusable policy profiles. Assign them from either profile page or the
+**Policy profiles** selectors in **Virtual Models / Aliases**, then Validate and
+Save. Assignments also work for sparkrun-generated models: they stay in operator
+configuration and survive sparkrun refreshes or the model disappearing and
+returning. Aliases and request-profile variants use the parent model's assigned
+policies unless overridden. Editing a shared policy updates all its assignments.
+
+Standalone PII request scope needs no persistent store; conversation scope uses
+encrypted SQLite mappings and requires caller authentication plus
+`X-SparkRoute-Thread-Id`. The default store lives beside the gateway configuration
+in a `.pii` directory.
 
 For ColdSnap recipes, idle policy can sleep instead of stop. Runtime controls
 show Status/Sleep/Wake only for receipt-backed jobs using an enabled ColdSnap
