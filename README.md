@@ -125,7 +125,7 @@ Choose **Local** for the ordinary provider/deployment form. Saved sparkrun
 deployments have their own recipe summary and **Edit recipe settings** action;
 applying settings preserves deployment IDs and virtual-model aliases.
 
-The default cold-start wait is 15 minutes; client timeouts may need to be longer
+The default cold-start wait is 30 minutes; client timeouts may need to be longer
 than a model's first download/load. Idle shutdown is off by default (30 minutes
 is suggested when enabled). Aliases share one deployment and its lifecycle
 policy. Idle time begins after the last request finishes, including streams.
