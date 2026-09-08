@@ -14,7 +14,8 @@ _sparkrun_sparkroute_host_supported() {
     grep -q "def catalog_cluster_capacity(" "$1/src/sparkrun/api/_catalog.py" 2>/dev/null &&
         grep -q "def native_api_options(" "$1/src/sparkrun/runtimes/base.py" 2>/dev/null &&
         grep -q '^OPENAI_RESPONSES_STREAM =' "$1/src/sparkrun/core/readiness.py" 2>/dev/null &&
-        grep -q 'self.sparkroute:' "$1/src/sparkrun/core/recipe.py" 2>/dev/null
+        grep -q 'affects_fingerprint: bool = True' "$1/src/sparkrun/core/recipe_items.py" 2>/dev/null &&
+        grep -q 'def export_plugin_items(' "$1/src/sparkrun/core/recipe.py" 2>/dev/null
 }
 
 _sparkrun_sparkroute_dev_setup() {

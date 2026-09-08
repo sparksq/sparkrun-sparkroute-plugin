@@ -26,10 +26,11 @@ diff --git a/src/sparkrun/api/proxy/_ops.py b/src/sparkrun/api/proxy/_ops.py
 index ca50119..f1babc5 100644
 --- a/src/sparkrun/api/proxy/_ops.py
 +++ b/src/sparkrun/api/proxy/_ops.py
-@@ -19,13 +19,12 @@ auto-discover daemon keeps driving the engine it was started with.
+@@ -19,14 +19,13 @@ auto-discover daemon keeps driving the engine it was started with.
  from __future__ import annotations
  
  import logging
+ from copy import deepcopy
 -import os
  from dataclasses import dataclass, field
  from typing import TYPE_CHECKING, Any

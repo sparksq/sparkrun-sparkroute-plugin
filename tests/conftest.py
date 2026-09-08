@@ -43,6 +43,7 @@ def isolate_sparkrun_state(tmp_path: Path, monkeypatch):
     import sparkrun.core.bootstrap as bootstrap
     import sparkrun.core.config as config
     import sparkrun.core.registry as registry
+    import sparkrun.core.recipe_items as recipe_items
     from sparkrun.core.features import FEATURE_FLAGS, FeatureFlag
     from sparkrun.core.in_tree_plugins import IN_TREE_PLUGIN_FEATURES
 
@@ -55,6 +56,7 @@ def isolate_sparkrun_state(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(config, "DEFAULT_CACHE_DIR", tmp_path / "cache" / "sparkrun", raising=False)
     monkeypatch.setattr(registry, "BOOTSTRAP_REGISTRY_URLS", [], raising=False)
     monkeypatch.setattr(registry.RegistryManager, "_clone_or_pull", lambda self, entry: False, raising=False)
+    monkeypatch.setattr(recipe_items, "_RECIPE_ITEMS", dict(recipe_items._RECIPE_ITEMS))
     monkeypatch.setitem(
         FEATURE_FLAGS,
         "gateway.sparkroute",
