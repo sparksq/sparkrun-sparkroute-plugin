@@ -15,7 +15,8 @@ _sparkrun_sparkroute_host_supported() {
         grep -q "def native_api_options(" "$1/src/sparkrun/runtimes/base.py" 2>/dev/null &&
         grep -q '^OPENAI_RESPONSES_STREAM =' "$1/src/sparkrun/core/readiness.py" 2>/dev/null &&
         grep -q 'affects_fingerprint: bool = True' "$1/src/sparkrun/core/recipe_items.py" 2>/dev/null &&
-        grep -q 'def export_plugin_items(' "$1/src/sparkrun/core/recipe.py" 2>/dev/null
+        grep -q 'def export_plugin_items(' "$1/src/sparkrun/core/recipe.py" 2>/dev/null &&
+        grep -q 'engine._await_exit(pid, RESTART_WAIT_SECONDS)' "$1/src/sparkrun/api/proxy/_ops.py" 2>/dev/null
 }
 
 _sparkrun_sparkroute_dev_setup() {
@@ -107,7 +108,7 @@ _sparkrun_sparkroute_dev_setup() {
     # Prefer this project's compatible local worktree when that host lacks the
     # recipe catalog and shared native API/readiness support.
     if ! _sparkrun_sparkroute_host_supported "$checkout" && _sparkrun_sparkroute_host_supported "$script_dir/.dev/sparkrun"; then
-        echo "Selected host lacks current catalog and recipe support; using this project's sparkrun checkout."
+        echo "Selected host lacks current catalog, recipe, and restart support; using this project's sparkrun checkout."
         checkout="$script_dir/.dev/sparkrun"
         managed_checkout=0
     fi
@@ -118,7 +119,7 @@ _sparkrun_sparkroute_dev_setup() {
     fi
 
     if ! _sparkrun_sparkroute_host_supported "$checkout"; then
-        echo "This sparkrun checkout lacks current catalog and recipe support. Select the host commit in compat/host.toml via SPARKRUN_CHECKOUT." >&2
+        echo "This sparkrun checkout lacks current catalog, recipe, and restart support. Select the host commit in compat/host.toml via SPARKRUN_CHECKOUT." >&2
         return 1
     fi
 
