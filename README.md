@@ -251,3 +251,10 @@ console after saving to update its navigation. Export
 requires the separate `trace_read_all` role, granted to the default local
 administrator, not ordinary config/status readers. Collector authentication
 values stay in environment variables, outside saved configuration.
+
+
+Recipes can also provide a top-level `sparkroute` block with deployment
+`capabilities` and API-specific `request_profiles`. These defaults flow through
+loaded/discovered workloads and the on-demand UI without changing workload
+identity. See [recipe defaults](src/sparkrun/plugins/sparkroute/README.md#recipe-defaults)
+for the YAML schema, examples, and ownership behavior.

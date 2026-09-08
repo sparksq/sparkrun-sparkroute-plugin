@@ -1,7 +1,7 @@
 # The development assembly applies host-seams.patch only when these generic
 # hooks are absent. The original checkout is never changed.
 repository = "https://github.com/spark-arena/sparkrun.git"
-commit = "a87871575fffc2a2c2954bc04111cb6c5143f7d5"
+commit = "ed37ff77e4ee1e85383b26e55657110cb7af29ad"
 patch = "sparkrun-host-seams.patch"
 # Shared run API / cluster propagation fixes, applied after the generic hooks.
 run_path_patch = "sparkrun-run-path.patch"

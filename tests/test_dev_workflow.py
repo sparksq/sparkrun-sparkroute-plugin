@@ -33,6 +33,7 @@ def _checkout(path: Path) -> None:
     (path / "src/sparkrun/api/_catalog.py").write_text("def catalog_cluster_capacity(): pass\n")
     (path / "src/sparkrun/core").mkdir()
     (path / "src/sparkrun/core/readiness.py").write_text('OPENAI_RESPONSES_STREAM = "openai-responses-stream-v1"\n')
+    (path / "src/sparkrun/core/recipe.py").write_text("self.sparkroute: dict = {}\n")
 
 
 def _development_tree(tmp_path: Path) -> tuple[Path, Path, dict[str, str]]:
@@ -259,7 +260,7 @@ def test_binary_preparation_failure_does_not_report_success(tmp_path):
     assert not Path(env["FAKE_SPARKRUN_LOG"]).exists()
 
 
-@pytest.mark.parametrize("missing", ["api/_catalog.py", "core/readiness.py"])
+@pytest.mark.parametrize("missing", ["api/_catalog.py", "core/readiness.py", "core/recipe.py"])
 def test_old_shared_host_uses_compatible_project_checkout(tmp_path: Path, missing):
     plugin, git_log, env = _development_tree(tmp_path)
     project_api = plugin / ".dev/sparkrun/src/sparkrun/api"
@@ -275,7 +276,7 @@ def test_old_shared_host_uses_compatible_project_checkout(tmp_path: Path, missin
         text=True,
     )
     assert result.returncode == 0, result.stderr
-    assert "Selected host lacks current catalog and native API support" in result.stdout
+    assert "Selected host lacks current catalog and recipe support" in result.stdout
     assert "selected=" + str(plugin / ".dev/sparkrun") in result.stdout
 
 
