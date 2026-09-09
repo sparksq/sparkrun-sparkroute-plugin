@@ -105,8 +105,18 @@ Multiple clusters are comma-separated. An optional local display cache preserves
 discovery labels across CLI invocations; it never controls routing or workload
 identity. Existing discovery snapshots get cluster labels on the next sync.
 
-The durable bindings remain present while their models are offline. The
-separate discovery snapshot supplies routes for already-running workloads.
+Explicit on-demand bindings remain present while their models are offline.
+Normal `sparkrun run` and `sparkrun proxy load` workloads use discovery only;
+loading a model does not create a durable activation binding. The separate
+discovery snapshot drops stopped workloads on sync (or after auto-discovery's
+configured grace period). `proxy unload` also performs a fresh discovery sync.
+
+Older plugin versions automatically added `proxy load` recipes to `bindings` in
+`~/.config/sparkrun/proxy.yaml`. Those existing entries remain explicit desired
+state; remove an unwanted entry or use `sparkrun proxy unload <recipe>`, then
+sync. Remove or update any operator virtual models/routing references that
+prevent the generated deployment from being removed. Existing explicit bindings
+are never discarded just because their workload is offline.
 Recipe resolution and launch use sparkrun's normal trust checks. Adopting an
 endpoint does not grant permission to stop a workload created by someone else.
 
