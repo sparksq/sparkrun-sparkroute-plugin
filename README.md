@@ -96,6 +96,24 @@ the SparkRoute console. Reconciliation replaces only the sparkrun set under
 revision checks and applies without a gateway restart. The console presents both
 sets in the same lists, with generated entries grayed out and read-only.
 
+The top-right **Configuration preset** selector shows **Default** or a named
+preset. **Save as preset…** copies the saved operator configuration and selects
+the new preset; normal configuration saves then update it. Select a preset to
+validate and load its configuration, or use **Manage presets…** to rename or
+delete named presets. Generated sparkrun entries remain shared. The last selected
+preset and its configuration are restored on gateway restart. Loading protects
+unsaved drafts and does not issue workload Start or Stop actions.
+
+The lifecycle provider named `sparkrun` is shared by generated deployments and
+operator-created on-demand bindings. Saving a recipe before the plugin has
+populated it creates the same provider in the read-only sparkrun set; later
+syncs reuse it. The gateway reserves this provider's default settings and keeps
+it available while a sparkrun deployment references it. On the next Save or
+sync, older uncustomized `sparkrun:operator` providers are consolidated into
+`sparkrun` without changing deployment IDs, aliases, or binding revisions.
+Customized legacy providers retain their settings. This reserved-provider
+normalization is committed atomically across the two configuration sets.
+
 Generated deployments have display titles such as `sparkrun:spark-a:Qwen3-8B`,
 while their existing hashed `name` IDs remain unchanged. Recipe bindings use their
 observed named clusters, matched by launch recipe fingerprint, then configured
@@ -152,6 +170,13 @@ policy. Idle time begins after the last request finishes, including streams.
 Workloads launched by someone else can be adopted but are never stopped by
 SparkRoute's idle policy. The Runtime page shows launch phase, cluster, job,
 and ownership.
+
+Runtime workload controls include **Start** for inactive recipe deployments and
+**Stop** for SparkRoute-owned workloads, with or without ColdSnap. Start waits
+for readiness through normal activation admission and does not send an inference
+request. Stop requires no active requests and leaves the saved binding in place,
+so Start or a later inference request can activate it again. ColdSnap workloads
+also retain their Check status, Sleep, and Wake controls.
 
 Registry search is cache-only; **Refresh registries** is explicit and reports
 partial failures. Local paths belong to the control node. Uploads do not grant
@@ -262,8 +287,8 @@ encrypted SQLite mappings and requires caller authentication plus
 `X-SparkRoute-Thread-Id`. The default store lives beside the gateway configuration
 in a `.pii` directory.
 
-For ColdSnap recipes, idle policy can sleep instead of stop. Runtime controls
-show Status/Sleep/Wake only for receipt-backed jobs using an enabled ColdSnap
+For ColdSnap recipes, idle policy can sleep instead of stop. Additional runtime
+controls show Status/Sleep/Wake for receipt-backed jobs using an enabled ColdSnap
 lifecycle API. Sleep/wake changes require SparkRoute ownership and no active
 leases. A request to a sleeping owned workload wakes the same job. Installed,
 enabled, recipe-required, and actually-used plugins are reported separately.

@@ -194,3 +194,9 @@ Sleep/wake run in detached workers sharing activation exclusion with
 `ensure_ready`, including overlapping candidate cluster sets. Uncertain replies
 remain non-ready. SparkRoute exposes these controls through authenticated
 `POST /v1/sparkrun/workload`, requiring `config_write` and a configured deployment.
+The gateway also accepts `start` and `stop` independently of plugin lifecycle
+support. Start takes a deployment without requiring a job ID and uses normal
+fenced activation admission, then releases its readiness lease without inference.
+Stop requires the exact current job ID, matching recipe and named cluster,
+SparkRoute ownership, and zero active leases; it uses the bridge's existing
+`stop` operation and preserves the saved deployment for subsequent activation.
