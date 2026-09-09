@@ -113,7 +113,7 @@ configured grace period). `proxy unload` also performs a fresh discovery sync.
 
 Older plugin versions automatically added `proxy load` recipes to `bindings` in
 `~/.config/sparkrun/proxy.yaml`. Those existing entries remain explicit desired
-state. In the UI, **Remove from sparkroute** on the generated virtual model or
+state. In the UI, **Remove from sparkroute** beside the generated virtual model or
 deployment excludes it and its generated names after Validate and Save, even
 while stopped. Operator-created dependencies are identified for repair. The
 exclusion survives `proxy sync` and restart; **Excluded sparkrun deployments**
@@ -121,7 +121,11 @@ under Model Deployments provides Restore. No manual `proxy.yaml` edit is needed,
 and running workloads are left alone. The source binding remains in sparkrun's
 configuration, with the exclusion saved in SparkRoute's operator configuration.
 Alternatively, remove an unwanted YAML binding and sync, or use
-`sparkrun proxy unload <recipe>` (which also stops the workload). Existing
+`sparkrun proxy unload <recipe>` (which also stops the workload, if running).
+Unload uses sparkrun's shared stop API and still retires the binding when the
+workload is already gone. Registry references and their cached file paths match
+the same recipe. Failed discovery or teardown keeps the registration intact;
+`--dry-run` changes neither workloads nor registration. Existing
 bindings are never discarded just because their workload is offline.
 Recipe resolution and launch use sparkrun's normal trust checks. Adopting an
 endpoint does not grant permission to stop a workload created by someone else.
