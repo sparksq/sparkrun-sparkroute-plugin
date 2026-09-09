@@ -96,6 +96,12 @@ the SparkRoute console. Reconciliation replaces only the sparkrun set under
 revision checks and applies without a gateway restart. The console presents both
 sets in the same lists, with generated entries grayed out and read-only.
 
+Model routing offers strategy guidance, explicit agent-stage model roles, and
+switching-sensitivity controls. The preview can simulate tool failures, edits,
+passing tests, and compaction without calling or starting models. See the
+[routing review](docs/MODEL_ROUTING_REVIEW.md) for the upstream comparison and
+recommended next experiments.
+
 The top-right **Configuration preset** selector shows **Default** or a named
 preset. **Save as preset…** copies the saved operator configuration and selects
 the new preset; normal configuration saves then update it. Select a preset to
