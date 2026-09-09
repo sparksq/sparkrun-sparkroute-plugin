@@ -1,4 +1,10 @@
-# Local development preview
+<!--
+SPDX-FileCopyrightText: 2026 Scitrera LLC
+SPDX-FileCopyrightText: 2026 Fox Engine Ltd
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
+# Development setup
 
 `source dev.sh` now prepares both SparkRun and a usable SparkRoute binary:
 
@@ -10,10 +16,11 @@ sparkrun proxy start --gateway sparkroute --host 127.0.0.1
 sparkrun proxy ui
 ```
 
-While the SparkRoute repository is private, authenticate `gh` with an account
-that can read `sparksq/sparkroute` (`gh auth login`). No deploy key is needed for
-local setup. Downloads and source fetches use existing credentials without
-changing Git configuration or forwarding credentials into Docker.
+SparkRoute source and release assets are public. Development setup uses `gh`
+for release and Actions discovery; authenticate it with `gh auth login` for that
+path. Source builds can use public Git access. No deploy key is required, and
+credentials are not forwarded into Docker. Production release acquisition uses
+the pinned public archives directly and does not require `gh`.
 
 The development binary is paired to `compat/gateway.toml`. Setup tries:
 
@@ -34,8 +41,8 @@ A source build first checks `.dev/sparkroute-public` and the sibling
 using GitHub CLI credentials, falling back to normal Git credentials. It
 exports only committed files into a temporary tree, leaving existing checkouts
 and their local changes untouched. The committed UI assets are included.
-Private source access is still required when no local Git copy contains the
-pin, even when Docker is available. Go modules and build results are cached
+Network access is required when no local Git copy contains the pin.
+Go modules and build results are cached
 under `.dev/go-cache`; the first build can take several minutes.
 
 Development controls:
@@ -57,7 +64,7 @@ To work on uncommitted SparkRoute changes, build your working tree yourself and
 set the explicit binary before sourcing the development environment:
 
 ```sh
-(cd /path/to/sparkroute-internal/oss && GOWORK=off go build -o /path/to/sparkroute-dev ./cmd/sparkroute)
+(cd /path/to/sparkroute && GOWORK=off go build -o /path/to/sparkroute-dev ./cmd/sparkroute)
 export SPARKRUN_SPARKROUTE_BINARY=/path/to/sparkroute-dev
 source dev.sh
 ```
@@ -65,8 +72,8 @@ source dev.sh
 Automatic preparation verifies development provenance using your trusted Git
 objects or authenticated GitHub access. It exports the existing development
 override, which emits a runtime warning because it bypasses production release
-pins. Public release acquisition remains unavailable until archive digests are
-pinned; installing the package alone does not trigger development builds.
+pins. Production acquisition verifies the published v0.0.1 archive digests;
+installing the package alone does not trigger downloads or development builds.
 
 Use a separate SparkRun configuration/cache for development so proxy state,
 credentials, bindings, and workloads are independent of a production setup.

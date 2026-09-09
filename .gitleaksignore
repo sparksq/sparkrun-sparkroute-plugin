@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Scitrera LLC
+# SPDX-FileCopyrightText: 2026 Fox Engine Ltd
+# SPDX-License-Identifier: AGPL-3.0-only
+
+# Synthetic llmgw_v1.cc_abc.def credential in a mocked subprocess result.
+# Limit the exception to the reviewed historical finding; do not exempt tests.
+85d1b882bd4794ac0fc8d7efda456f05d9ef65b8:tests/test_sparkroute_admin.py:generic-api-key:141

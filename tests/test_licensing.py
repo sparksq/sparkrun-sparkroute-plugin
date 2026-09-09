@@ -11,12 +11,14 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / "src" / "sparkrun" / "plugins" / "sparkroute"
+# REUSE-IgnoreStart
 HEADER = (
     "# SPDX-FileCopyrightText: 2026 Scitrera LLC",
     "# SPDX-FileCopyrightText: 2026 Fox Engine Ltd",
     "# SPDX-License-Identifier: AGPL-3.0-only",
     "# Additional permission under AGPLv3 section 7: see src/sparkrun/plugins/sparkroute/LICENSE_EXCEPTION.",
 )
+# REUSE-IgnoreEnd
 
 
 def test_source_and_tests_carry_the_plugin_license_notice():

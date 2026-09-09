@@ -269,7 +269,7 @@ def build_binary(source: Path, binary: Path, cache: Path, version: str, commit: 
         raise ValueError(
             "No working builder. Start Docker or install Go "
             + go_match[1]
-            + "; private source also requires GitHub access or SPARKROUTE_CHECKOUT."
+            + "; source acquisition requires network access or SPARKROUTE_CHECKOUT."
         )
     log(f"Building {target[0]}/{target[1]} with local Go (requires {go_match[1]} or newer) ...")
     run([go, *args, "-o", str(binary), "./cmd/sparkroute"], cwd=source, env={**os.environ, **environment})

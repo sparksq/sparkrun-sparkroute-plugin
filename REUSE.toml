@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 Scitrera LLC
+# SPDX-FileCopyrightText: 2026 Fox Engine Ltd
+# SPDX-License-Identifier: AGPL-3.0-only
+
+version = 1
+
+# Generated workflows must remain identical to repo-tools output.
+[[annotations]]
+path = [".github/workflows/test-python.yml", ".github/workflows/version-check.yml"]
+precedence = "closest"
+SPDX-FileCopyrightText = ["2026 Scitrera LLC", "2026 Fox Engine Ltd"]
+SPDX-License-Identifier = "AGPL-3.0-only"
+
+# Setuptools metadata generated inside source distributions.
+[[annotations]]
+path = ["PKG-INFO", "setup.cfg", "src/sparkrun_sparkroute_plugin.egg-info/*"]
+precedence = "closest"
+SPDX-FileCopyrightText = ["2026 Scitrera LLC", "2026 Fox Engine Ltd"]
+SPDX-License-Identifier = "AGPL-3.0-only"
+
+# Metadata for these notice documents; the section 7 permission is preserved
+# verbatim in both copies and continues to apply to the files that reference it.
+[[annotations]]
+path = ["LICENSE_EXCEPTION", "src/sparkrun/plugins/sparkroute/LICENSE_EXCEPTION", "NOTICE"]
+precedence = "closest"
+SPDX-FileCopyrightText = ["2026 Scitrera LLC", "2026 Fox Engine Ltd"]
+SPDX-License-Identifier = "AGPL-3.0-only"
+
+# Host compatibility patches derive from Apache-2.0 sparkrun, not the AGPL
+# plugin. Keep the patch bytes intact so Git can apply them on every platform.
+[[annotations]]
+path = ["compat/sparkrun-host-seams.patch", "compat/sparkrun-run-path.patch", "compat/sparkrun-proxy-unload.patch"]
+precedence = "closest"
+SPDX-FileCopyrightText = ["The sparkrun contributors", "2026 Scitrera LLC", "2026 Fox Engine Ltd"]
+SPDX-License-Identifier = "Apache-2.0"

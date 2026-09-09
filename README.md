@@ -6,10 +6,17 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # SparkRoute plugin for sparkrun
 
-This is the independent development home of sparkrun's SparkRoute integration.
-sparkrun distributions vendor an immutable source snapshot as
-`sparkrun.plugins.sparkroute`. Building or installing sparkrun does not clone
-this repository or acquire a gateway binary.
+This repository provides sparkrun's SparkRoute integration, designed to be
+vendored by a compatible sparkrun distribution as `sparkrun.plugins.sparkroute`.
+It supervises the gateway and connects model discovery and workload lifecycle
+controls to sparkrun.
+
+**Host compatibility:** the published Sparkrun 0.3.8 package does not yet bundle
+or discover this plugin. Installing this wheel alone does not enable it. Use
+the tested development assembly below, or a host distribution that vendors the
+plugin and includes the required compatibility hooks. `compat/host.toml` pins
+the tested host source and patches. The commands below require that assembly
+or a compatible distribution.
 
 The integration starts SparkRoute with `-sparkrun` to enable the recipe catalog
 and lifecycle controller. Standalone SparkRoute leaves this integration disabled
@@ -28,11 +35,15 @@ sparkrun proxy ui
 
 ## Development preview
 
-The initial extraction is a source-development preview. The default gateway
-version is recorded in `versions.yaml`, but verified public release archive
-digests must be added before normal binary acquisition can succeed. `dev.sh`
-prepares a separate development binary, including while the repository is
-private. See [DEV_PREVIEW.md](DEV_PREVIEW.md) for acquisition and build controls.
+The plugin is currently distributed as source for development and vendoring;
+GitHub releases can provide source and wheel artifacts. There is no package
+registry publisher. The default gateway is SparkRoute v0.0.1, with verified
+archive digests for all six controller platforms. A compatible host downloads
+the gateway when it starts, without requiring GitHub authentication. Installing
+the package does not download or start a gateway.
+
+`dev.sh` prepares a separate development binary. See
+[DEV_PREVIEW.md](DEV_PREVIEW.md) for acquisition and build controls.
 
 Use a local sparkrun checkout without modifying it:
 
@@ -86,7 +97,7 @@ arm64. The GPU hosts can use a different platform from this controller. Windows
 archives contain `sparkroute.exe`; Linux/macOS archives contain `sparkroute`.
 Native CI exercises both the gateway and the installed sparkrun bridge on all
 six combinations. A source pin in `compat/gateway.toml` identifies the paired
-Go checkout; it is separate from the eventual verified release archive pins.
+Go checkout; it is separate from the verified release archive pins.
 
 ## Configuration ownership
 
@@ -99,8 +110,8 @@ sets in the same lists, with generated entries grayed out and read-only.
 Model routing offers strategy guidance, explicit agent-stage model roles, and
 switching-sensitivity controls. The preview can simulate tool failures, edits,
 passing tests, and compaction without calling or starting models. See the
-[routing review](docs/MODEL_ROUTING_REVIEW.md) for the upstream comparison and
-recommended next experiments.
+[routing guide](https://github.com/sparksq/sparkroute/blob/v0.0.1/docs/MODEL_ROUTING.md)
+for strategy configuration and examples.
 
 The top-right **Configuration preset** selector shows **Default** or a named
 preset. **Save as preset…** copies the saved operator configuration and selects
@@ -224,6 +235,8 @@ CI assembles the commit-pinned host and runs Python 3.12/3.13 tests, lint,
 version checks, and workflow drift checks. Release tags must match the catalog.
 The repository-owned release workflow publishes wheels, source distributions,
 and checksums to GitHub after its gates pass. It does not publish to PyPI.
+The [release checklist](docs/RELEASING.md) covers license and history scans,
+artifact inspection, and running the release workflow before tagging.
 
 sparkrun's vendor importer records the exact plugin repository, commit, tree,
 version, and content hashes in `vendor/sparkroute.lock` and packaged
@@ -237,6 +250,8 @@ The integration is AGPL-3.0-only with the additional permission in
 exception preserves the licensing of sparkrun's Apache-2.0 portions while
 retaining the plugin's AGPL obligations. Both notices ship inside the package.
 SparkRoute OSS is separately distributed under its own AGPL license.
+Repository scripts and host patches retain their BSD-3-Clause and Apache-2.0
+licenses; see [NOTICE](NOTICE), [REUSE.toml](REUSE.toml), and [LICENSES](LICENSES).
 
 The initial source was extracted from sparkrun's
 `feature/llm-gateway-integration` at

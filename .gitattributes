@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Scitrera LLC
+# SPDX-FileCopyrightText: 2026 Fox Engine Ltd
+# SPDX-License-Identifier: AGPL-3.0-only
+
 # Unified diff context lines intentionally consist of a single space.
 # Keep patch context identical to the LF source used by the host assembler,
 # including on Windows checkouts with core.autocrlf enabled.

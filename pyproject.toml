@@ -12,9 +12,14 @@ version = "0.1.0"
 description = "First-party SparkRoute integration for sparkrun"
 readme = "README.md"
 license = "AGPL-3.0-only"
-license-files = ["LICENSE", "LICENSE_EXCEPTION"]
+license-files = ["LICENSE", "LICENSE_EXCEPTION", "NOTICE", "LICENSES/*.txt"]
 requires-python = ">=3.12"
 dependencies = ["sparkrun>=0.3.8,<0.4"]
+
+[project.urls]
+Homepage = "https://github.com/sparksq/sparkrun-sparkroute-plugin"
+Issues = "https://github.com/sparksq/sparkrun-sparkroute-plugin/issues"
+Source = "https://github.com/sparksq/sparkrun-sparkroute-plugin"
 
 [tool.setuptools.packages.find]
 where = ["src"]

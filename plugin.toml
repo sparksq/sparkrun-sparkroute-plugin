@@ -6,7 +6,7 @@ schema = 1
 name = "sparkroute"
 module = "sparkrun.plugins.sparkroute"
 feature = "gateway.sparkroute"
-repository = "git@github.com:sparksq/sparkrun-sparkroute-plugin.git"
+repository = "https://github.com/sparksq/sparkrun-sparkroute-plugin.git"
 sparkrun = ">=0.3.8,<0.4"
 source = "src/sparkrun/plugins/sparkroute"
 tests = "tests/test_sparkroute_*.py"

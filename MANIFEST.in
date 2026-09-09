@@ -12,4 +12,14 @@ recursive-include scripts *.py
 recursive-include tests *.py
 recursive-include .github/workflows *.yml
 recursive-include compat *.patch *.toml
-recursive-include docs *.md
+include docs/SPARKROUTE_BRIDGE.md
+include docs/RELEASING.md
+include REUSE.toml
+include .gitleaksignore
+recursive-include LICENSES *.txt
+prune .dev
+prune .slop
+prune .venv
+prune build
+prune dist
+global-exclude __pycache__ *.py[cod]

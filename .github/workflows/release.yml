@@ -8,6 +8,7 @@
 name: Release
 
 on:
+  workflow_dispatch:
   push:
     tags: ['v*.*.*']
 
@@ -19,13 +20,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  audit:
+    uses: ./.github/workflows/publication-audit.yml
+
   tests:
     uses: ./.github/workflows/test-python.yml
 
   controls:
     uses: ./.github/workflows/native-controls.yml
-    secrets:
-      SPARKROUTE_CI_SSH_KEY: ${{ secrets.SPARKROUTE_CI_SSH_KEY }}
 
   build:
     name: Verify tag and build distributions
@@ -52,6 +54,7 @@ jobs:
         run: python scripts/generate-ci-gha.py --check
 
       - name: Compare tag against versions.yaml
+        if: github.ref_type == 'tag'
         run: |
           set -euo pipefail
           declared="$(python scripts/update-versions.py --print-version sparkrun-sparkroute-plugin)"
@@ -60,11 +63,17 @@ jobs:
             exit 1
           fi
 
+      - name: Check licensing
+        run: uvx --from reuse==6.2.0 reuse lint
+
       - name: Build sdist and wheel
         run: uv build --no-sources
 
       - name: Check distributions
         run: uvx --from twine==6.2.0 twine check --strict dist/*
+
+      - name: Verify archive contents and notices
+        run: python scripts/check-distributions.py dist
 
       - name: Write checksums
         working-directory: dist
@@ -80,8 +89,8 @@ jobs:
 
   github-release:
     name: Create GitHub release
-    needs: [tests, controls, build]
-    if: github.ref_type == 'tag' && github.repository == 'sparksq/sparkrun-sparkroute-plugin'
+    needs: [audit, tests, controls, build]
+    if: github.event_name == 'push' && github.ref_type == 'tag' && github.repository == 'sparksq/sparkrun-sparkroute-plugin'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

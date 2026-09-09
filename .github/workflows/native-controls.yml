@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Scitrera LLC
+# SPDX-FileCopyrightText: 2026 Fox Engine Ltd
+# SPDX-License-Identifier: AGPL-3.0-only
+
 # Repository-owned paired Go/Python qualification across controller platforms.
 name: Native control platforms
 on:
@@ -6,10 +10,6 @@ on:
   pull_request:
     branches: [main]
   workflow_call:
-    secrets:
-      SPARKROUTE_CI_SSH_KEY:
-        description: Read-only checkout key while the gateway repository is private
-        required: false
 permissions:
   contents: read
 jobs:
@@ -53,13 +53,12 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
               output.write('repository=' + repository + '\ncommit=' + pin['commit'] + '\n')
           PY
-      - name: Check out the pinned private gateway source
+      - name: Check out the pinned public gateway source
         uses: actions/checkout@v6
         with:
           repository: ${{ steps.gateway.outputs.repository }}
           ref: ${{ steps.gateway.outputs.commit }}
           path: .dev/ci-gateway
-          ssh-key: ${{ secrets.SPARKROUTE_CI_SSH_KEY }}
           persist-credentials: false
       - name: Build the pinned OSS gateway
         run: python scripts/prepare-ci-gateway.py --source .dev/ci-gateway

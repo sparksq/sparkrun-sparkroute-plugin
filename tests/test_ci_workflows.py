@@ -64,22 +64,22 @@ def test_release_reuses_the_complete_test_matrix_and_limits_write_access():
     assert "python scripts/generate-ci-gha.py --check" in commands
 
     release = _workflow("release.yml")
-    assert release["on"] == {"push": {"tags": ["v*.*.*"]}}
+    assert release["on"] == {"workflow_dispatch": "", "push": {"tags": ["v*.*.*"]}}
     assert release["permissions"] == {"contents": "read"}
     assert release["jobs"]["tests"]["uses"] == "./.github/workflows/test-python.yml"
     publish = release["jobs"]["github-release"]
-    assert set(publish["needs"]) == {"tests", "controls", "build"}
-    assert publish["if"] == "github.ref_type == 'tag' && github.repository == 'sparksq/sparkrun-sparkroute-plugin'"
+    assert set(publish["needs"]) == {"audit", "tests", "controls", "build"}
+    assert release["jobs"]["audit"]["uses"] == "./.github/workflows/publication-audit.yml"
+    assert publish["if"] == (
+        "github.event_name == 'push' && github.ref_type == 'tag' && github.repository == 'sparksq/sparkrun-sparkroute-plugin'"
+    )
     assert publish["permissions"] == {"contents": "write"}
     assert "permissions" not in release["jobs"]["build"]
     assert "publish-python.yml" not in {path.name for path in WORKFLOWS.glob("*.yml")}
     text = (WORKFLOWS / "release.yml").read_text(encoding="utf-8")
     assert "pypa/gh-action-pypi-publish" not in text
     assert "id-token:" not in text
-    assert release["jobs"]["controls"]["secrets"] == {
-        "SPARKROUTE_CI_SSH_KEY": "${{ secrets.SPARKROUTE_CI_SSH_KEY }}",
-    }
-    assert all("secrets" not in job for name, job in release["jobs"].items() if name != "controls")
+    assert all("secrets" not in job for job in release["jobs"].values())
 
 
 @pytest.mark.parametrize("tag", ["v0.1.1", "v0.1.0", "v0.3.20", "0.1.1", "v0.1.1-extra"])
@@ -123,15 +123,14 @@ def test_native_controls_cover_every_release_platform_and_gate_publication():
     assert "tests/test_sparkroute_live.py" in commands
 
 
-def test_private_gateway_checkout_uses_scoped_credentials_and_the_catalog_pin():
+def test_public_gateway_checkout_needs_no_custom_secret_and_uses_the_catalog_pin():
     workflow = _workflow("native-controls.yml")
-    assert set(workflow["on"]["workflow_call"]["secrets"]) == {"SPARKROUTE_CI_SSH_KEY"}
-    assert workflow["on"]["workflow_call"]["secrets"]["SPARKROUTE_CI_SSH_KEY"]["required"] == "false"
+    assert workflow["on"]["workflow_call"] == ""
     steps = workflow["jobs"]["control"]["steps"]
     checkout = next(step for step in steps if step.get("with", {}).get("path") == ".dev/ci-gateway")
     assert checkout["with"]["repository"] == "${{ steps.gateway.outputs.repository }}"
     assert checkout["with"]["ref"] == "${{ steps.gateway.outputs.commit }}"
-    assert checkout["with"]["ssh-key"] == "${{ secrets.SPARKROUTE_CI_SSH_KEY }}"
+    assert "ssh-key" not in checkout["with"]
     assert checkout["with"]["persist-credentials"] == "false"
     commands = [step.get("run", "") for step in steps]
     assert "python scripts/prepare-ci-gateway.py --source .dev/ci-gateway" in commands

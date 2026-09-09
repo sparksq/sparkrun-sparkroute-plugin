@@ -1,8 +1,13 @@
-# LLM Gateway bridge
+<!--
+SPDX-FileCopyrightText: 2026 Scitrera LLC
+SPDX-FileCopyrightText: 2026 Fox Engine Ltd
+SPDX-License-Identifier: AGPL-3.0-only
+-->
 
-sparkrun ships a hidden, machine-oriented command used by SparkRoute, the OSS
-LLM gateway formed by converging the Scitrera LLM Gateway execution engine with
-Fox SparkRoute's model-policy engine:
+# SparkRoute gateway bridge
+
+A compatible sparkrun distribution with this plugin enabled provides a hidden,
+machine-oriented command used by SparkRoute:
 
 ```text
 sparkrun gateway-bridge

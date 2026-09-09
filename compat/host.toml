@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Scitrera LLC
+# SPDX-FileCopyrightText: 2026 Fox Engine Ltd
+# SPDX-License-Identifier: AGPL-3.0-only
+
 # The development assembly applies host-seams.patch only when these generic
 # hooks are absent. The original checkout is never changed.
 repository = "https://github.com/spark-arena/sparkrun.git"
