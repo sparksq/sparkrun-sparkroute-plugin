@@ -26,9 +26,18 @@ index bf405a5..7b05bc2 100644
      matches = sorted({cid for cid in status.running_cluster_ids() if cid.startswith(prefix)})
  
 diff --git a/src/sparkrun/cli/_proxy.py b/src/sparkrun/cli/_proxy.py
-index d5bdb2a..ab999dd 100644
+index d5bdb2a..e198649 100644
 --- a/src/sparkrun/cli/_proxy.py
 +++ b/src/sparkrun/cli/_proxy.py
+@@ -750,7 +750,7 @@ def _warn_not_registered(readiness, proxy_status) -> None:
+ 
+ 
+ @proxy.command("unload")
+-@click.argument("recipe_name")
++@click.argument("recipe_name", type=RECIPE_NAME)
+ @host_options
+ @dry_run_option
+ @click.pass_context
 @@ -761,25 +761,56 @@ def unload_cmd(ctx, recipe_name, hosts, hosts_file, cluster_name, dry_run):
  
        sparkrun proxy unload qwen3-1.7b-vllm --cluster mylab
