@@ -174,15 +174,28 @@ than a model's first download/load. Idle shutdown is off by default (30 minutes
 is suggested when enabled). Aliases share one deployment and its lifecycle
 policy. Idle time begins after the last request finishes, including streams.
 Workloads launched by someone else can be adopted but are never stopped by
-SparkRoute's idle policy. The Runtime page shows launch phase, cluster, job,
-and ownership.
+SparkRoute's idle policy. Overview combines running deployments and activatable
+workloads in one inventory, with separate lifecycle and routing/circuit state.
+Inactive workloads stay visible before their first start and after stopping.
+Select a deployment for cluster/job identity, ownership, queue limits, activation
+progress, endpoint details, circuit failures, and recent activity.
 
-Runtime workload controls include **Start** for inactive recipe deployments and
+Overview workload controls include **Start** for inactive recipe deployments and
 **Stop** for SparkRoute-owned workloads, with or without ColdSnap. Start waits
 for readiness through normal activation admission and does not send an inference
 request. Stop requires no active requests and leaves the saved binding in place,
 so Start or a later inference request can activate it again. ColdSnap workloads
-also retain their Check status, Sleep, and Wake controls.
+also show Check status and the appropriate Sleep or Wake control. Adopted jobs
+cannot be stopped, slept, or woken through the gateway. Controls explain when
+active requests, an ongoing transition, or stale status prevents a change.
+
+Activity and Diagnostics are secondary views within Overview for lifecycle
+history, controller health, and endpoint inventory. The former `/admin/runtime`
+URL opens Overview. Status refreshes every five seconds; each source retains its
+last successful snapshot and reports failures independently. Search and filters
+cover deployment/model names, provider, cluster, lifecycle, and circuit state;
+activity counters also filter the inventory. Narrow screens show stacked cards
+with the same workload controls.
 
 Registry search is cache-only; **Refresh registries** is explicit and reports
 partial failures. Local paths belong to the control node. Uploads do not grant
