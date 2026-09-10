@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 schema = 1
+# Metadata-only opt-in for hosts implementing distribution API version 1.
+distribution_api = 1
 name = "sparkroute"
 module = "sparkrun.plugins.sparkroute"
 feature = "gateway.sparkroute"

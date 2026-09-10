@@ -90,3 +90,14 @@ knowing this schema. The plugin owns parsing, validation, canonical export and
 bridge projection. It must be enabled to recognize the key in fresh recipe YAML.
 Saved plugin items and their fingerprint policy survive serialization/export
 when the plugin is unavailable.
+
+## Distribution API compatibility
+
+The source manifest declares `distribution_api = 1`. A compatible host records
+that declaration in verified vendor metadata before enabling the integration for
+an alternate application profile. Cache roots and binary overrides follow the
+active profile; gateway and worker children preserve its installed reference and
+same-controller config file. An alternate callback must exist in the current
+Python environment. Older hosts without the profile API keep Sparkrun behavior.
+The `sparkrun` protocol/provider identifiers and `sparkroute` extension IDs remain
+shared. See the repository README for integration and testing details.

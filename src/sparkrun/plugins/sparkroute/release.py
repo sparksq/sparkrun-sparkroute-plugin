@@ -165,9 +165,9 @@ def expected_digest(version: str, target_os: str, target_arch: str) -> str:
 
 def _version_dir(version: str, cache_dir: Path | None = None) -> Path:
     if cache_dir is None:
-        from sparkrun.core.config import DEFAULT_CACHE_DIR
+        from sparkrun.core.config import resolve_sparkrun_cache_dir
 
-        cache_dir = DEFAULT_CACHE_DIR
+        cache_dir = resolve_sparkrun_cache_dir()
     return Path(cache_dir) / "gateways" / SPARKROUTE_BINARY / version
 
 
@@ -191,14 +191,15 @@ def _binary_override() -> tuple[str, str] | None:
     binary came from a variable they never exported is how a stale legacy
     export survives a debugging session.
     """
-    override = os.environ.get(BINARY_OVERRIDE_ENV)
-    if override:
-        return BINARY_OVERRIDE_ENV, override
-    for name in LEGACY_BINARY_OVERRIDE_ENVS:
-        legacy = os.environ.get(name)
-        if legacy:
-            logger.warning("%s is deprecated; use %s", name, BINARY_OVERRIDE_ENV)
-            return name, legacy
+    from ._distribution import binary_override_names
+
+    names = binary_override_names()
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            if name != names[0]:
+                logger.warning("%s is a compatibility alias; use %s", name, names[0])
+            return name, value
     return None
 
 
@@ -464,13 +465,24 @@ def resolve_sparkrun_executable() -> str:
             in a source checkout that was never installed; ``uv sync`` (or any
             pip/pipx/uvx install) provides the script.
     """
-    script = shutil.which("sparkrun")
+    from ._distribution import host_api
+    import sys
+
+    api = host_api()
+    profile = api.get_distribution() if api is not None else None
+    command = profile.command if profile is not None else "sparkrun"
+    if profile is not None and profile.id != "sparkrun":
+        # A PATH entry can belong to another installation with different plugins.
+        windows = sys.platform == "win32"
+        candidate = Path(sys.prefix) / ("Scripts" if windows else "bin") / (command + (".exe" if windows else ""))
+        script = str(candidate) if candidate.is_file() and os.access(candidate, os.X_OK) else None
+    else:
+        script = shutil.which(command)
     if not script:
         raise GatewayReleaseError(
-            "No 'sparkrun' executable on PATH for the gateway to call back into. "
-            "The gateway appends a single argument to -sparkrun-command, so a "
-            "'python -m sparkrun' invocation cannot be used; install sparkrun so its "
-            "console script exists (e.g. 'uv sync')."
+            "No %r console executable in the selected installation for the gateway callback. "
+            "The gateway appends a single argument to -sparkrun-command; install the distribution "
+            "and its required plugins in this environment." % command
         )
     return script
 

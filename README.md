@@ -383,3 +383,41 @@ Recipes can also provide a top-level `sparkroute` block with deployment
 loaded/discovered workloads and the on-demand UI without changing workload
 identity. See [recipe defaults](src/sparkrun/plugins/sparkroute/README.md#recipe-defaults)
 for the YAML schema, examples, and ownership behavior.
+
+## Alternate application distributions
+
+The plugin declares `distribution_api = 1` in `plugin.toml`. Hosts implementing
+that API preserve this declaration in their verified vendor metadata and can
+check compatibility before importing the integration. Older hosts without the
+profile API retain the existing Sparkrun behavior and dependency range.
+
+Under an alternate profile, binary acquisition uses the active host cache resolver.
+The development binary override is `<PROFILE_PREFIX>_SPARKROUTE_BINARY`; unrelated
+`SPARKRUN_*` overrides do not leak into another product. Explicit profile aliases
+are honored, and the historical FoxSci/LLM Gateway aliases remain available under
+Sparkrun. The gateway callback selects the active console script in the current
+Python environment, requiring that distribution and its plugins to be installed
+there. Sparkrun retains its existing console-script lookup behavior.
+
+Gateway processes and detached operation workers inherit the installed profile
+reference. Same-controller children also retain an explicitly selected config
+file, including its feature gates, before plugin initialization. Remote launcher
+images must supply their own configuration paths and compatible installed packages;
+a controller-local config path is not a portable remote mount.
+
+The gateway protocol, `sparkrun` provider/configuration-set names, extension IDs
+and recipe keys remain shared. They identify compatibility contracts, not the
+application brand. Host supervisor and workload APIs enforce resource ownership.
+No gateway release pins or hardware qualification claims change here.
+
+Run the plugin against a distribution-enabled host without invoking the networked
+development setup:
+
+```sh
+SPARKRUN_CHECKOUT=/path/to/sparkrun .venv/bin/python -m pytest tests/ -q
+```
+
+The test harness binds detached workers to the same host source. Profile tests
+exercise both launch modes, cache/override isolation, callback selection and a
+fresh console-free child with an explicit config file. They skip profile-specific
+checks on a legacy host, while retaining tests for the legacy compatibility path.
