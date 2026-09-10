@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Additional permission under AGPLv3 section 7: see src/sparkrun/plugins/sparkroute/LICENSE_EXCEPTION.
 
-"""Optional host distribution API; legacy hosts retain their Sparkrun behavior."""
+"""Optional host application profile API; legacy hosts retain their Sparkrun behavior."""
 
 from __future__ import annotations
 
@@ -13,14 +13,14 @@ from pathlib import Path
 
 
 def host_api():
-    """Only a missing distribution module means legacy; other import errors propagate."""
+    """Only a missing application profile module means legacy; other import errors propagate."""
     try:
-        return importlib.import_module("sparkrun.core.distribution")
+        return importlib.import_module("sparkrun.core.application_profile")
     except ModuleNotFoundError as exc:
-        if exc.name != "sparkrun.core.distribution":
+        if exc.name != "sparkrun.core.application_profile":
             raise
-        if os.environ.get("SPARKRUN_DISTRIBUTION_PROFILE"):
-            raise RuntimeError("This child requires a host with distribution API support") from exc
+        if os.environ.get("SPARKRUN_APPLICATION_PROFILE"):
+            raise RuntimeError("This child requires a host with application profile API support") from exc
         return None
 
 
@@ -29,7 +29,7 @@ def binary_override_names() -> tuple[str, ...]:
     legacy = ("SPARKRUN_FOXSCI_ROUTE_BINARY", "SPARKRUN_LLM_GATEWAY_BINARY")
     if api is None:
         return ("SPARKRUN_SPARKROUTE_BINARY", *legacy)
-    profile = api.get_distribution()
+    profile = api.get_application_profile()
     return (
         api.env_name("SPARKROUTE_BINARY"),
         *profile.env_aliases.get("SPARKROUTE_BINARY", ()),

@@ -128,7 +128,7 @@ def start_operation(request: Request, *, sctx) -> dict:
             if os.name == "nt"
             else {"start_new_session": True}
         )
-        from ._distribution import child_environment
+        from ._application_profile import child_environment
 
         try:
             child = subprocess.Popen(
@@ -220,7 +220,7 @@ def previous_placement() -> dict | None:
 
 def run_worker(config_path: Path, operation_id: str) -> None:
     import sparkrun.api as api
-    from ._distribution import worker_context
+    from ._application_profile import worker_context
     import logging
     from logging.handlers import RotatingFileHandler
     from .operations import _ensure_ready, _require_feature_enabled, _resolve_binding

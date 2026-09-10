@@ -191,7 +191,7 @@ def _binary_override() -> tuple[str, str] | None:
     binary came from a variable they never exported is how a stale legacy
     export survives a debugging session.
     """
-    from ._distribution import binary_override_names
+    from ._application_profile import binary_override_names
 
     names = binary_override_names()
     for name in names:
@@ -465,11 +465,11 @@ def resolve_sparkrun_executable() -> str:
             in a source checkout that was never installed; ``uv sync`` (or any
             pip/pipx/uvx install) provides the script.
     """
-    from ._distribution import host_api
+    from ._application_profile import host_api
     import sys
 
     api = host_api()
-    profile = api.get_distribution() if api is not None else None
+    profile = api.get_application_profile() if api is not None else None
     command = profile.command if profile is not None else "sparkrun"
     if profile is not None and profile.id != "sparkrun":
         # A PATH entry can belong to another installation with different plugins.

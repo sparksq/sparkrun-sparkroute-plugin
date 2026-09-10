@@ -17,24 +17,24 @@ from unittest import mock
 
 import pytest
 
-from sparkrun.plugins.sparkroute import _distribution, release, jobs
+from sparkrun.plugins.sparkroute import _application_profile, release, jobs
 
 
 @pytest.fixture
 def profile(tmp_path, monkeypatch):
-    api = pytest.importorskip("sparkrun.core.distribution")
-    api._reset_distribution_for_tests()
+    api = pytest.importorskip("sparkrun.core.application_profile")
+    api._reset_application_profile_for_tests()
     monkeypatch.setenv("HOME", str(tmp_path))
     code = (
-        "from sparkrun.core.distribution import DistributionProfile\n"
-        "PROFILE = DistributionProfile(id='jetson-test', display_name='Jetson test', "
+        "from sparkrun.core.application_profile import ApplicationProfile\n"
+        "PROFILE = ApplicationProfile(id='jetson-test', display_name='Jetson test', "
         "command='jetson-test', package='jetson-test', profile_ref='sparkroute_test_profile:PROFILE', "
         "feature_defaults={'gateway.sparkroute': True}, registries=())\n"
     )
     (tmp_path / "sparkroute_test_profile.py").write_text(code)
     scope = {}
     exec(code, scope)
-    api.select_distribution(scope["PROFILE"])
+    api.select_application_profile(scope["PROFILE"])
     monkeypatch.setenv("PYTHONPATH", os.pathsep.join([str(tmp_path), os.environ.get("PYTHONPATH", "")]))
     return scope["PROFILE"]
 
@@ -91,8 +91,8 @@ def test_gateway_foreground_and_background_children_keep_profile(profile, tmp_pa
         assert engine.start() == 0
         assert engine.start(foreground=True) == 0
     for environment in (background.call_args.args[1], foreground.call_args.kwargs["env"]):
-        assert environment["SPARKRUN_DISTRIBUTION_PROFILE"] == profile.profile_ref
-        assert environment["SPARKRUN_DISTRIBUTION_CONFIG"] == str(config.config_path)
+        assert environment["SPARKRUN_APPLICATION_PROFILE"] == profile.profile_ref
+        assert environment["SPARKRUN_APPLICATION_CONFIG"] == str(config.config_path)
 
 
 def test_worker_environment_and_fresh_api_initialization(profile, tmp_path):
@@ -109,7 +109,7 @@ def test_worker_environment_and_fresh_api_initialization(profile, tmp_path):
     code = (
         "from sparkrun.application import initialize; import json, sys; "
         "from sparkrun.core.features import feature_gate_enabled; "
-        "c=initialize(); print(json.dumps([c.distribution.id,str(c.config.config_path),feature_gate_enabled('gateway.sparkroute',c.variables)])); "
+        "c=initialize(); print(json.dumps([c.application_profile.id,str(c.config.config_path),feature_gate_enabled('gateway.sparkroute',c.variables)])); "
         "assert 'click' not in sys.modules"
     )
     result = subprocess.run([sys.executable, "-c", code], env=environment, cwd=tmp_path, capture_output=True, text=True, timeout=30)
@@ -118,17 +118,17 @@ def test_worker_environment_and_fresh_api_initialization(profile, tmp_path):
 
 
 def test_legacy_host_preserves_environment_and_override_names(monkeypatch):
-    monkeypatch.setattr(_distribution, "host_api", lambda: None)
+    monkeypatch.setattr(_application_profile, "host_api", lambda: None)
     monkeypatch.setenv("PRESERVE_TEST_SETTING", "value")
-    assert _distribution.child_environment()["PRESERVE_TEST_SETTING"] == "value"
-    assert _distribution.binary_override_names() == (release.BINARY_OVERRIDE_ENV, *release.LEGACY_BINARY_OVERRIDE_ENVS)
+    assert _application_profile.child_environment()["PRESERVE_TEST_SETTING"] == "value"
+    assert _application_profile.binary_override_names() == (release.BINARY_OVERRIDE_ENV, *release.LEGACY_BINARY_OVERRIDE_ENVS)
 
 
 def test_missing_host_api_cannot_silently_drop_child_identity(monkeypatch):
-    missing = ModuleNotFoundError("legacy host", name="sparkrun.core.distribution")
-    with mock.patch.object(_distribution.importlib, "import_module", side_effect=missing):
-        monkeypatch.delenv("SPARKRUN_DISTRIBUTION_PROFILE", raising=False)
-        assert _distribution.host_api() is None
-        monkeypatch.setenv("SPARKRUN_DISTRIBUTION_PROFILE", "example:PROFILE")
+    missing = ModuleNotFoundError("legacy host", name="sparkrun.core.application_profile")
+    with mock.patch.object(_application_profile.importlib, "import_module", side_effect=missing):
+        monkeypatch.delenv("SPARKRUN_APPLICATION_PROFILE", raising=False)
+        assert _application_profile.host_api() is None
+        monkeypatch.setenv("SPARKRUN_APPLICATION_PROFILE", "example:PROFILE")
         with pytest.raises(RuntimeError, match="requires a host"):
-            _distribution.host_api()
+            _application_profile.host_api()

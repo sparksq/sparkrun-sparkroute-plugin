@@ -470,7 +470,7 @@ class SparkrouteEngine(GatewaySupervisor):
         self._warn_admin_exposure()
         self._warn_insecure_bind()
 
-        from ._distribution import child_environment
+        from ._application_profile import child_environment
 
         env = child_environment(self.sctx.config.config_path if self.sctx is not None else None)
 

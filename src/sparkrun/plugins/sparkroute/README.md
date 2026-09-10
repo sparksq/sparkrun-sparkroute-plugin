@@ -91,9 +91,9 @@ bridge projection. It must be enabled to recognize the key in fresh recipe YAML.
 Saved plugin items and their fingerprint policy survive serialization/export
 when the plugin is unavailable.
 
-## Distribution API compatibility
+## Application profile API compatibility
 
-The source manifest declares `distribution_api = 1`. A compatible host records
+The source manifest declares `application_profile_api = 1`. A compatible host records
 that declaration in verified vendor metadata before enabling the integration for
 an alternate application profile. Cache roots and binary overrides follow the
 active profile; gateway and worker children preserve its installed reference and

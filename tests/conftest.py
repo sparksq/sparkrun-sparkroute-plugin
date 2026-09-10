@@ -39,16 +39,16 @@ sparkrun.plugins.__path__.insert(0, plugin_parent)
 def isolate_sparkrun_state(tmp_path: Path, monkeypatch):
     """Keep plugin tests away from developer configuration and network state."""
     monkeypatch.setenv("SPARKRUN_NO_INSTALLED_PLUGINS", "1")
-    monkeypatch.delenv("SPARKRUN_DISTRIBUTION_PROFILE", raising=False)
-    monkeypatch.delenv("SPARKRUN_DISTRIBUTION_CONFIG", raising=False)
+    monkeypatch.delenv("SPARKRUN_APPLICATION_PROFILE", raising=False)
+    monkeypatch.delenv("SPARKRUN_APPLICATION_CONFIG", raising=False)
     try:
-        from sparkrun.core.distribution import _reset_distribution_for_tests
+        from sparkrun.core.application_profile import _reset_application_profile_for_tests
         from sparkrun.core.installed_plugins import reset_installed_plugins
         from sparkrun.core.external_plugins import clear_loaded_plugin_modules
     except ImportError:
         pass
     else:
-        _reset_distribution_for_tests()
+        _reset_application_profile_for_tests()
         reset_installed_plugins()
         clear_loaded_plugin_modules()
         import sparkrun.core.config as config_module

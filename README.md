@@ -384,10 +384,10 @@ loaded/discovered workloads and the on-demand UI without changing workload
 identity. See [recipe defaults](src/sparkrun/plugins/sparkroute/README.md#recipe-defaults)
 for the YAML schema, examples, and ownership behavior.
 
-## Alternate application distributions
+## Application profiles
 
-The plugin declares `distribution_api = 1` in `plugin.toml`. Hosts implementing
-that API preserve this declaration in their verified vendor metadata and can
+The plugin declares `application_profile_api = 1` in `plugin.toml`. Hosts implementing
+`sparkrun.core.application_profile` (`ApplicationProfile`, API version 1) preserve this declaration in their verified vendor metadata and can
 check compatibility before importing the integration. Older hosts without the
 profile API retain the existing Sparkrun behavior and dependency range.
 
@@ -410,8 +410,8 @@ and recipe keys remain shared. They identify compatibility contracts, not the
 application brand. Host supervisor and workload APIs enforce resource ownership.
 No gateway release pins or hardware qualification claims change here.
 
-Run the plugin against a distribution-enabled host without invoking the networked
-development setup:
+Run the plugin against a host that supports application profiles without invoking
+the networked development setup:
 
 ```sh
 SPARKRUN_CHECKOUT=/path/to/sparkrun .venv/bin/python -m pytest tests/ -q
