@@ -75,7 +75,7 @@ assets and successful Actions distributions for the exact `compat/gateway.toml`
 commit using your existing `gh` authentication. If none are available, it builds
 that commit in Docker using the Go version in the source's `go.mod`, with local
 Go as a fallback. Docker builds target the controller's OS and architecture.
-Setup exports `SPARKRUN_SPARKROUTE_BINARY`; a binary you explicitly set takes
+Setup exports `SPARKROUTE_BINARY`; a binary you explicitly set takes
 precedence. No GitHub credentials are forwarded into the build container.
 
 On Windows, run `python scripts/assemble-dev-host.py --host C:/path/to/sparkrun
@@ -86,7 +86,7 @@ convenience entry point.
 After installing the packages on Windows, use PowerShell to prepare the gateway:
 
 ```powershell
-$env:SPARKRUN_SPARKROUTE_BINARY = python scripts/prepare-dev-gateway.py
+$env:SPARKROUTE_BINARY = python scripts/prepare-dev-gateway.py
 if ($LASTEXITCODE -ne 0) { throw "SparkRoute development setup failed" }
 ```
 
@@ -383,3 +383,40 @@ Recipes can also provide a top-level `sparkroute` block with deployment
 loaded/discovered workloads and the on-demand UI without changing workload
 identity. See [recipe defaults](src/sparkrun/plugins/sparkroute/README.md#recipe-defaults)
 for the YAML schema, examples, and ownership behavior.
+
+## Application profiles
+
+The plugin declares `application_profile_api = 1` in `plugin.toml`. Hosts implementing
+`sparkrun.core.application_profile` (`ApplicationProfile`, API version 1) preserve this declaration in their verified vendor metadata and can
+check compatibility before importing the integration. Older hosts without the
+profile API retain the existing Sparkrun behavior and dependency range.
+
+Under an alternate profile, binary acquisition uses the active host cache resolver.
+`SPARKROUTE_BINARY` is the only development binary override for every application
+profile. Profile-prefixed and historical override names are not supported.
+The gateway callback selects the active console script in the current
+Python environment, requiring that distribution and its plugins to be installed
+there. Sparkrun retains its existing console-script lookup behavior.
+
+Gateway processes and detached operation workers inherit the installed profile
+reference. Same-controller children also retain an explicitly selected config
+file, including its feature gates, before plugin initialization. Remote launcher
+images must supply their own configuration paths and compatible installed packages;
+a controller-local config path is not a portable remote mount.
+
+The gateway protocol, `sparkrun` provider/configuration-set names, extension IDs
+and recipe keys remain shared. They identify compatibility contracts, not the
+application brand. Host supervisor and workload APIs enforce resource ownership.
+No gateway release pins or hardware qualification claims change here.
+
+Run the plugin against a host that supports application profiles without invoking
+the networked development setup:
+
+```sh
+SPARKRUN_CHECKOUT=/path/to/sparkrun .venv/bin/python -m pytest tests/ -q
+```
+
+The test harness binds detached workers to the same host source. Profile tests
+exercise both launch modes, cache/override isolation, callback selection and a
+fresh console-free child with an explicit config file. They skip profile-specific
+checks on a legacy host, while retaining tests for the legacy compatibility path.

@@ -29,7 +29,6 @@ _sparkrun_sparkroute_dev_setup() {
     local checkout_override
     local dev_checkout
     local gateway_binary
-    local legacy_binary_env
     local branch
     local managed_checkout=0
     local repository="https://github.com/spark-arena/sparkrun.git"
@@ -159,25 +158,15 @@ _sparkrun_sparkroute_dev_setup() {
     # shellcheck disable=SC1091
     source "$venv_dir/bin/activate" || return 1
 
-    if [[ -z "${SPARKRUN_SPARKROUTE_BINARY:-}" ]]; then
-        for legacy_binary_env in SPARKRUN_FOXSCI_ROUTE_BINARY SPARKRUN_LLM_GATEWAY_BINARY; do
-            if [[ -n "${!legacy_binary_env:-}" ]]; then
-                export SPARKRUN_SPARKROUTE_BINARY="${!legacy_binary_env}"
-                echo "$legacy_binary_env is deprecated; use SPARKRUN_SPARKROUTE_BINARY." >&2
-                break
-            fi
-        done
-    fi
-
     # A previous setup's export is managed output: revalidate it so changing
     # the paired source pin cannot silently leave an older binary selected.
-    if [[ -n "${SPARKRUN_SPARKROUTE_BINARY:-}" && \
-          "${SPARKRUN_SPARKROUTE_BINARY}" != "${_SPARKRUN_SPARKROUTE_MANAGED_BINARY:-}" ]]; then
-        if [[ ! -f "$SPARKRUN_SPARKROUTE_BINARY" || ! -x "$SPARKRUN_SPARKROUTE_BINARY" ]]; then
-            echo "SPARKRUN_SPARKROUTE_BINARY must name an executable file: $SPARKRUN_SPARKROUTE_BINARY" >&2
+    if [[ -n "${SPARKROUTE_BINARY:-}" && \
+          "${SPARKROUTE_BINARY}" != "${_SPARKRUN_SPARKROUTE_MANAGED_BINARY:-}" ]]; then
+        if [[ ! -f "$SPARKROUTE_BINARY" || ! -x "$SPARKROUTE_BINARY" ]]; then
+            echo "SPARKROUTE_BINARY must name an executable file: $SPARKROUTE_BINARY" >&2
             return 1
         fi
-        echo "Using explicit SparkRoute development binary: $SPARKRUN_SPARKROUTE_BINARY"
+        echo "Using explicit SparkRoute development binary: $SPARKROUTE_BINARY"
         unset _SPARKRUN_SPARKROUTE_MANAGED_BINARY
     else
         echo "Preparing the pinned SparkRoute development binary ..."
@@ -186,7 +175,7 @@ _sparkrun_sparkroute_dev_setup() {
             echo "SparkRoute development setup did not produce an executable: $gateway_binary" >&2
             return 1
         fi
-        export SPARKRUN_SPARKROUTE_BINARY="$gateway_binary"
+        export SPARKROUTE_BINARY="$gateway_binary"
         export _SPARKRUN_SPARKROUTE_MANAGED_BINARY="$gateway_binary"
     fi
 

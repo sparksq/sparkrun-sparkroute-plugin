@@ -21,6 +21,8 @@ if SPARKRUN_CHECKOUT:
     if not (host_source / "sparkrun" / "__init__.py").is_file():
         raise RuntimeError("SPARKRUN_CHECKOUT does not point to a sparkrun checkout: %s" % SPARKRUN_CHECKOUT)
     sys.path.insert(0, str(host_source))
+    # Detached test workers must import the same host as the parent pytest process.
+    os.environ["PYTHONPATH"] = os.pathsep.join(filter(None, (str(host_source), os.environ.get("PYTHONPATH"))))
 
 try:
     import sparkrun.plugins
@@ -36,6 +38,22 @@ sparkrun.plugins.__path__.insert(0, plugin_parent)
 @pytest.fixture(autouse=True)
 def isolate_sparkrun_state(tmp_path: Path, monkeypatch):
     """Keep plugin tests away from developer configuration and network state."""
+    monkeypatch.setenv("SPARKRUN_NO_INSTALLED_PLUGINS", "1")
+    monkeypatch.delenv("SPARKRUN_APPLICATION_PROFILE", raising=False)
+    monkeypatch.delenv("SPARKRUN_APPLICATION_CONFIG", raising=False)
+    try:
+        from sparkrun.core.application_profile import _reset_application_profile_for_tests
+        from sparkrun.core.installed_plugins import reset_installed_plugins
+        from sparkrun.core.external_plugins import clear_loaded_plugin_modules
+    except ImportError:
+        pass
+    else:
+        _reset_application_profile_for_tests()
+        reset_installed_plugins()
+        clear_loaded_plugin_modules()
+        import sparkrun.core.config as config_module
+
+        monkeypatch.setattr(config_module, "_application_config_path", None)
     monkeypatch.setenv("STATEFUL_ROOT", str(tmp_path / "stateful"))
     monkeypatch.setenv("SPARKRUN_NO_TELEMETRY", "1")
     monkeypatch.setenv("SPARKRUN_NO_EXTERNAL_PLUGINS", "1")
