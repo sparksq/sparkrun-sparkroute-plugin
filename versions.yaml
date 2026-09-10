@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: 2026 Fox Engine Ltd
 # SPDX-License-Identifier: AGPL-3.0-only
 
-sparkrun-sparkroute-plugin: 0.1.0
-sparkroute: 0.0.1
+sparkrun-sparkroute-plugin: 0.1.1
+sparkroute: 0.0.2
 
 project_rules:
   sparkrun-sparkroute-plugin:

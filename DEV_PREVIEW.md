@@ -72,13 +72,19 @@ source dev.sh
 Automatic preparation verifies development provenance using your trusted Git
 objects or authenticated GitHub access. It exports the existing development
 override, which emits a runtime warning because it bypasses production release
-pins. Production acquisition verifies the published v0.0.1 archive digests;
+pins. Production acquisition verifies the published v0.0.2 archive digests;
 installing the package alone does not trigger downloads or development builds.
 
 Use a separate SparkRun configuration/cache for development so proxy state,
 credentials, bindings, and workloads are independent of a production setup.
 The test suite redirects these paths and disables external plugin loading and
 registry fetching.
+
+SparkRoute v0.0.2 adds opt-in automatic recovery in the recipe deployment editor.
+Plugin v0.1.1 pins that release and its matching source, so normal development
+setup includes recovery. Clear any explicit binary override before sourcing
+`dev.sh` to select the pinned build. Recovery uses bridge schema v4 and does not
+require a new bridge operation.
 
 `proxy ui` reports the console URL. `proxy admin-token get`, `set`, and `clear`
 manage the live admin credential according to the gateway's token-file mode.

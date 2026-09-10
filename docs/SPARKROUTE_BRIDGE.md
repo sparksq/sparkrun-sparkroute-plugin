@@ -87,6 +87,16 @@ raw job metadata stay on the control node. Idle shutdown is available only for
 owned workloads; shared request leases span gateway configuration generations.
 Deleting a route disables its idle policy without stopping the job.
 
+SparkRoute v0.0.2 can also apply an opt-in `endpoint_source.recovery` policy to
+persistently failing owned jobs. The gateway counts qualifying failed half-open
+probes, drains shared request leases, and uses the existing exact-job `stop` and
+durable `ensure_ready` operations for recovery. Bridge schema v4 remains unchanged.
+Recovery always performs a stop, independently of an idle action that uses sleep.
+Readiness, ownership checks, and reconciliation of uncertain prior launches remain
+the bridge's responsibility. Recovery timers, backoff, budgets, and operator status
+belong to the gateway; see SparkRoute's
+[workload recovery guide](https://github.com/sparksq/sparkroute/blob/v0.0.2/docs/WORKLOAD_RECOVERY.md).
+
 ## Durable activation and timing
 
 `ensure_ready` admits a detached controller-local worker before returning when

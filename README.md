@@ -37,7 +37,7 @@ sparkrun proxy ui
 
 The plugin is currently distributed as source for development and vendoring;
 GitHub releases can provide source and wheel artifacts. There is no package
-registry publisher. The default gateway is SparkRoute v0.0.1, with verified
+registry publisher. The default gateway is SparkRoute v0.0.2, with verified
 archive digests for all six controller platforms. A compatible host downloads
 the gateway when it starts, without requiring GitHub authentication. Installing
 the package does not download or start a gateway.
@@ -110,7 +110,7 @@ sets in the same lists, with generated entries grayed out and read-only.
 Model routing offers strategy guidance, explicit agent-stage model roles, and
 switching-sensitivity controls. The preview can simulate tool failures, edits,
 passing tests, and compaction without calling or starting models. See the
-[routing guide](https://github.com/sparksq/sparkroute/blob/v0.0.1/docs/MODEL_ROUTING.md)
+[routing guide](https://github.com/sparksq/sparkroute/blob/v0.0.2/docs/MODEL_ROUTING.md)
 for strategy configuration and examples.
 
 The top-right **Configuration preset** selector shows **Default** or a named

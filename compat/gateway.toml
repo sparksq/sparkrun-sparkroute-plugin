@@ -2,6 +2,6 @@
 # SPDX-FileCopyrightText: 2026 Fox Engine Ltd
 # SPDX-License-Identifier: AGPL-3.0-only
 
-# Public SparkRoute v0.0.1 source, paired with the plugin integration tests.
+# Public SparkRoute v0.0.2 source, paired with the plugin integration tests.
 repository = "https://github.com/sparksq/sparkroute.git"
-commit = "4335feceb855ec6043351ec455199168dc6da5fc"
+commit = "47ee4461d16d5e7dd5fb311a41081817aeb0fbbf"
