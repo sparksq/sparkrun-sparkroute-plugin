@@ -102,6 +102,7 @@ exit 0
         "SPARKRUN_CHECKOUT",
         "SPARKRUN_BRANCH",
         "_SPARKRUN_SPARKROUTE_MANAGED_CHECKOUT",
+        "SPARKROUTE_BINARY",
         "SPARKRUN_SPARKROUTE_BINARY",
         "_SPARKRUN_SPARKROUTE_MANAGED_BINARY",
         "SPARKRUN_FOXSCI_ROUTE_BINARY",
@@ -129,7 +130,7 @@ source "$PLUGIN_ROOT/dev.sh"
 printf 'checkout=%s\\nbranch=%s\\nmarker=%s\\n' \\
     "$SPARKRUN_CHECKOUT" "$SPARKRUN_BRANCH" "$_SPARKRUN_SPARKROUTE_MANAGED_CHECKOUT"
 printf 'dev_checkout=%s\\n' "$SPARKRUN_DEV_CHECKOUT"
-printf 'binary=%s\\n' "$SPARKRUN_SPARKROUTE_BINARY"
+printf 'binary=%s\\n' "$SPARKROUTE_BINARY"
 """,
         ],
         check=False,
@@ -249,11 +250,25 @@ def test_explicit_binary_skips_preparation(tmp_path):
         ["bash", "-c", 'source "$PLUGIN_ROOT/dev.sh"'],
         capture_output=True,
         text=True,
-        env={**env, "PLUGIN_ROOT": str(plugin), "SPARKRUN_SPARKROUTE_BINARY": env["FAKE_GATEWAY_BINARY"]},
+        env={**env, "PLUGIN_ROOT": str(plugin), "SPARKROUTE_BINARY": env["FAKE_GATEWAY_BINARY"]},
     )
     assert result.returncode == 0, result.stderr
     assert "Using explicit SparkRoute development binary" in result.stdout
     assert not Path(env["FAKE_GATEWAY_LOG"]).exists()
+
+
+@pytest.mark.parametrize("variable", ["SPARKRUN_SPARKROUTE_BINARY", "SPARKRUN_FOXSCI_ROUTE_BINARY", "SPARKRUN_LLM_GATEWAY_BINARY"])
+def test_old_binary_override_names_do_not_skip_preparation(tmp_path, variable):
+    plugin, _, env = _development_tree(tmp_path)
+    result = subprocess.run(
+        ["bash", "-c", 'source "$PLUGIN_ROOT/dev.sh"'],
+        capture_output=True,
+        text=True,
+        env={**env, "PLUGIN_ROOT": str(plugin), variable: env["FAKE_GATEWAY_BINARY"]},
+    )
+    assert result.returncode == 0, result.stderr
+    assert "Using explicit SparkRoute development binary" not in result.stdout
+    assert Path(env["FAKE_GATEWAY_LOG"]).read_text().splitlines() == ["prepare"]
 
 
 def test_binary_preparation_failure_does_not_report_success(tmp_path):

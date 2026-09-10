@@ -86,14 +86,7 @@ RELEASE_CHECKSUMS: dict[tuple[str, str, str], str] = {
 #: Point at a locally-built binary instead of a release asset.  Development
 #: aid for working on SparkRoute itself; skips version and digest checks, so
 #: it warns every time.
-BINARY_OVERRIDE_ENV = "SPARKRUN_SPARKROUTE_BINARY"
-
-#: Names this variable had before, newest first, still honoured so an existing
-#: development setup continues to use its explicitly selected binary.
-LEGACY_BINARY_OVERRIDE_ENVS = (
-    "SPARKRUN_FOXSCI_ROUTE_BINARY",
-    "SPARKRUN_LLM_GATEWAY_BINARY",
-)
+BINARY_OVERRIDE_ENV = "SPARKROUTE_BINARY"
 
 #: Refuse absurd downloads rather than filling the cache dir.  Also bounds
 #: extraction, so a decompression bomb cannot outgrow the same limit.
@@ -183,26 +176,6 @@ def archive_path(version: str, *, cache_dir: Path | None = None) -> Path:
     return _version_dir(version, cache_dir) / asset_name(version, target_os, target_arch)
 
 
-def _binary_override() -> tuple[str, str] | None:
-    """Return ``(env var, binary path)``, preferring the current name.
-
-    The variable name is returned rather than assumed, so every message about
-    the override names the one the caller actually set — telling someone their
-    binary came from a variable they never exported is how a stale legacy
-    export survives a debugging session.
-    """
-    from ._application_profile import binary_override_names
-
-    names = binary_override_names()
-    for name in names:
-        value = os.environ.get(name)
-        if value:
-            if name != names[0]:
-                logger.warning("%s is a compatibility alias; use %s", name, names[0])
-            return name, value
-    return None
-
-
 def ensure_binary(
     version: str | None = None,
     *,
@@ -220,15 +193,14 @@ def ensure_binary(
         GatewayReleaseError: The platform is unsupported, no digest is pinned,
             the download failed, or the asset did not match its digest.
     """
-    override = _binary_override()
+    override = os.environ.get(BINARY_OVERRIDE_ENV)
     if override:
-        source_env, override_path = override
-        path = Path(override_path)
+        path = Path(override)
         if not path.is_file():
-            raise GatewayReleaseError("%s points at %s, which is not a file" % (source_env, path))
+            raise GatewayReleaseError("%s points at %s, which is not a file" % (BINARY_OVERRIDE_ENV, path))
         logger.warning(
             "Using SparkRoute binary from %s (%s) — version and checksum verification are skipped",
-            source_env,
+            BINARY_OVERRIDE_ENV,
             path,
         )
         return path
@@ -493,7 +465,6 @@ __all__ = [
     "SPARKROUTE_REPO",
     "SPARKROUTE_VERSION",
     "GatewayReleaseError",
-    "LEGACY_BINARY_OVERRIDE_ENVS",
     "MAX_DOWNLOAD_BYTES",
     "RELEASE_CHECKSUMS",
     "archive_path",

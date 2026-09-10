@@ -39,18 +39,22 @@ def profile(tmp_path, monkeypatch):
     return scope["PROFILE"]
 
 
-def test_cache_and_binary_overrides_are_product_owned(profile, tmp_path, monkeypatch):
+def test_cache_paths_are_product_owned(profile, tmp_path, monkeypatch):
     monkeypatch.setenv("SPARKRUN_CACHE_DIR", str(tmp_path / "foreign"))
-    monkeypatch.setenv("SPARKRUN_SPARKROUTE_BINARY", "/foreign/current")
-    for alias in release.LEGACY_BINARY_OVERRIDE_ENVS:
-        monkeypatch.setenv(alias, "/foreign/legacy")
     assert release.binary_path("test").parent == tmp_path / ".cache/jetson-test/gateways/sparkroute/test"
-    assert release._binary_override() is None
-    monkeypatch.setenv("JETSON_TEST_SPARKROUTE_BINARY", "/product/binary")
-    assert release._binary_override() == ("JETSON_TEST_SPARKROUTE_BINARY", "/product/binary")
     monkeypatch.setenv("JETSON_TEST_CACHE_DIR", str(tmp_path / "custom"))
     assert release.binary_path("test").is_relative_to(tmp_path / "custom")
     assert release.binary_path("test", cache_dir=tmp_path / "explicit").is_relative_to(tmp_path / "explicit")
+
+
+def test_binary_override_is_shared_across_profiles(profile, tmp_path, monkeypatch):
+    monkeypatch.setenv("JETSON_TEST_SPARKROUTE_BINARY", str(tmp_path / "unused-profile-binary"))
+    binary = tmp_path / "sparkroute"
+    binary.write_bytes(b"shared development binary")
+    monkeypatch.setenv("SPARKROUTE_BINARY", str(binary))
+    with mock.patch.object(release.urllib.request, "urlopen") as download:
+        assert release.ensure_binary(cache_dir=tmp_path) == binary
+    download.assert_not_called()
 
 
 def test_callback_uses_active_console_in_current_environment(profile, tmp_path, monkeypatch):
@@ -117,11 +121,10 @@ def test_worker_environment_and_fresh_api_initialization(profile, tmp_path):
     assert json.loads(result.stdout) == [profile.id, str(config.config_path), False]
 
 
-def test_legacy_host_preserves_environment_and_override_names(monkeypatch):
+def test_legacy_host_preserves_environment(monkeypatch):
     monkeypatch.setattr(_application_profile, "host_api", lambda: None)
     monkeypatch.setenv("PRESERVE_TEST_SETTING", "value")
     assert _application_profile.child_environment()["PRESERVE_TEST_SETTING"] == "value"
-    assert _application_profile.binary_override_names() == (release.BINARY_OVERRIDE_ENV, *release.LEGACY_BINARY_OVERRIDE_ENVS)
 
 
 def test_missing_host_api_cannot_silently_drop_child_identity(monkeypatch):

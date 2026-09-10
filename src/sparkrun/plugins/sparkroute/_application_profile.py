@@ -24,19 +24,6 @@ def host_api():
         return None
 
 
-def binary_override_names() -> tuple[str, ...]:
-    api = host_api()
-    legacy = ("SPARKRUN_FOXSCI_ROUTE_BINARY", "SPARKRUN_LLM_GATEWAY_BINARY")
-    if api is None:
-        return ("SPARKRUN_SPARKROUTE_BINARY", *legacy)
-    profile = api.get_application_profile()
-    return (
-        api.env_name("SPARKROUTE_BINARY"),
-        *profile.env_aliases.get("SPARKROUTE_BINARY", ()),
-        *(legacy if profile.id == "sparkrun" else ()),
-    )
-
-
 def child_environment(config_path: Path | None = None) -> dict[str, str]:
     """Same-controller gateway and operation children retain profile/config identity."""
     api = host_api()

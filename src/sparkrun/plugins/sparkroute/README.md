@@ -95,8 +95,10 @@ when the plugin is unavailable.
 
 The source manifest declares `application_profile_api = 1`. A compatible host records
 that declaration in verified vendor metadata before enabling the integration for
-an alternate application profile. Cache roots and binary overrides follow the
-active profile; gateway and worker children preserve its installed reference and
+an alternate application profile. Cache roots follow the active profile;
+`SPARKROUTE_BINARY` is the only binary override across profiles. Profile-prefixed
+and historical override names are not supported. Gateway and worker children
+preserve the profile's installed reference and
 same-controller config file. An alternate callback must exist in the current
 Python environment. Older hosts without the profile API keep Sparkrun behavior.
 The `sparkrun` protocol/provider identifiers and `sparkroute` extension IDs remain

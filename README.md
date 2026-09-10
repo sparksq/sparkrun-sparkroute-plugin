@@ -75,7 +75,7 @@ assets and successful Actions distributions for the exact `compat/gateway.toml`
 commit using your existing `gh` authentication. If none are available, it builds
 that commit in Docker using the Go version in the source's `go.mod`, with local
 Go as a fallback. Docker builds target the controller's OS and architecture.
-Setup exports `SPARKRUN_SPARKROUTE_BINARY`; a binary you explicitly set takes
+Setup exports `SPARKROUTE_BINARY`; a binary you explicitly set takes
 precedence. No GitHub credentials are forwarded into the build container.
 
 On Windows, run `python scripts/assemble-dev-host.py --host C:/path/to/sparkrun
@@ -86,7 +86,7 @@ convenience entry point.
 After installing the packages on Windows, use PowerShell to prepare the gateway:
 
 ```powershell
-$env:SPARKRUN_SPARKROUTE_BINARY = python scripts/prepare-dev-gateway.py
+$env:SPARKROUTE_BINARY = python scripts/prepare-dev-gateway.py
 if ($LASTEXITCODE -ne 0) { throw "SparkRoute development setup failed" }
 ```
 
@@ -392,10 +392,9 @@ check compatibility before importing the integration. Older hosts without the
 profile API retain the existing Sparkrun behavior and dependency range.
 
 Under an alternate profile, binary acquisition uses the active host cache resolver.
-The development binary override is `<PROFILE_PREFIX>_SPARKROUTE_BINARY`; unrelated
-`SPARKRUN_*` overrides do not leak into another product. Explicit profile aliases
-are honored, and the historical FoxSci/LLM Gateway aliases remain available under
-Sparkrun. The gateway callback selects the active console script in the current
+`SPARKROUTE_BINARY` is the only development binary override for every application
+profile. Profile-prefixed and historical override names are not supported.
+The gateway callback selects the active console script in the current
 Python environment, requiring that distribution and its plugins to be installed
 there. Sparkrun retains its existing console-script lookup behavior.
 
