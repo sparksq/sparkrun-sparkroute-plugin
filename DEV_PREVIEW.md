@@ -6,7 +6,9 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # Development setup
 
-`source dev.sh` now prepares both SparkRun and a usable SparkRoute binary:
+`source dev.sh` prepares both SparkRun and a usable SparkRoute binary. This
+branch requires a Sparkrun 0.4 checkout with the application-profile and gateway
+contracts:
 
 ```sh
 export SPARKRUN_CHECKOUT=/path/to/compatible/sparkrun
@@ -49,7 +51,7 @@ Development controls:
 
 | Variable | Effect |
 | --- | --- |
-| `SPARKRUN_SPARKROUTE_BINARY` | Use an explicit executable; skips automatic preparation. Set before sourcing. |
+| `SPARKROUTE_BINARY` | Use an explicit executable; skips automatic preparation. Set before sourcing. |
 | `SPARKROUTE_CHECKOUT` | Use Git objects from this local repository when a source build is needed. It must contain the pinned commit; uncommitted changes are excluded. |
 | `SPARKROUTE_DEV_BUILDER` | `auto` (default), `docker`, or `go`. Explicit builders skip GitHub binary lookup when building. |
 | `SPARKROUTE_DEV_GO` | Local Go executable name or absolute path. |
@@ -65,7 +67,7 @@ set the explicit binary before sourcing the development environment:
 
 ```sh
 (cd /path/to/sparkroute && GOWORK=off go build -o /path/to/sparkroute-dev ./cmd/sparkroute)
-export SPARKRUN_SPARKROUTE_BINARY=/path/to/sparkroute-dev
+export SPARKROUTE_BINARY=/path/to/sparkroute-dev
 source dev.sh
 ```
 

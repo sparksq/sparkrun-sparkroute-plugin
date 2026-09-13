@@ -25,11 +25,3 @@ path = ["LICENSE_EXCEPTION", "src/sparkrun/plugins/sparkroute/LICENSE_EXCEPTION"
 precedence = "closest"
 SPDX-FileCopyrightText = ["2026 Scitrera LLC", "2026 Fox Engine Ltd"]
 SPDX-License-Identifier = "AGPL-3.0-only"
-
-# Host compatibility patches derive from Apache-2.0 sparkrun, not the AGPL
-# plugin. Keep the patch bytes intact so Git can apply them on every platform.
-[[annotations]]
-path = ["compat/sparkrun-host-seams.patch", "compat/sparkrun-run-path.patch", "compat/sparkrun-proxy-unload.patch"]
-precedence = "closest"
-SPDX-FileCopyrightText = ["The sparkrun contributors", "2026 Scitrera LLC", "2026 Fox Engine Ltd"]
-SPDX-License-Identifier = "Apache-2.0"

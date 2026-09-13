@@ -68,53 +68,8 @@ class AssemblyError(RuntimeError):
     """The selected host cannot be assembled safely."""
 
 
-def _apply_host_seams(host: Path, plugin_root: Path) -> None:
-    """Apply the reviewed, temporary host patch only to the disposable copy."""
-    patch = plugin_root / "compat/sparkrun-host-seams.patch"
-    if not patch.is_file():
-        return
-    config = host / "src/sparkrun/proxy/config.py"
-    api = host / "src/sparkrun/api/proxy/_ops.py"
-    if config.is_file() and api.is_file():
-        if "def bindings(" in config.read_text() and "def ui(" in api.read_text() and (host / "src/sparkrun/utils/process.py").is_file():
-            return
-    # A temporary Git root prevents git apply from discovering the plugin's
-    # parent repository and interpreting paths relative to that checkout.
-    try:
-        for command in (["init", "--quiet"], ["apply", "--check", str(patch)], ["apply", str(patch)]):
-            subprocess.run(["git", "-C", str(host), "-c", "core.autocrlf=false", *command], check=True, capture_output=True, text=True)
-    except subprocess.CalledProcessError as error:
-        raise AssemblyError(
-            "host compatibility patch does not apply; select the commit in compat/host.toml "
-            "or a host with the SparkRoute proxy hooks already integrated: %s" % error.stderr.strip()
-        ) from error
-    finally:
-        _remove_path(host / ".git")
-
-
 def _ignore(_directory: str, names: list[str]) -> set[str]:
     return set(names).intersection(_IGNORED_NAMES)
-
-
-def _apply_host_fix(host: Path, patch: Path, description: str) -> None:
-    """Apply a reviewed core fix to an older disposable development host."""
-    if not patch.is_file():
-        return
-    try:
-        subprocess.run(["git", "-C", str(host), "init", "--quiet"], check=True, capture_output=True, text=True)
-        command = ["git", "-C", str(host), "-c", "core.autocrlf=false", "apply"]
-        applied = subprocess.run([*command, "--reverse", "--check", str(patch)], capture_output=True, text=True)
-        if applied.returncode == 0:
-            return
-        subprocess.run([*command, "--check", str(patch)], check=True, capture_output=True, text=True)
-        subprocess.run([*command, str(patch)], check=True, capture_output=True, text=True)
-    except subprocess.CalledProcessError as error:
-        raise AssemblyError(
-            "%s compatibility patch does not apply; select the commit in compat/host.toml "
-            "or a host with that fix integrated: %s" % (description, error.stderr.strip())
-        ) from error
-    finally:
-        _remove_path(host / ".git")
 
 
 def _append_if_missing(path: Path, pattern: re.Pattern[str], addition: str) -> None:
@@ -183,14 +138,17 @@ def assemble(*, host: Path, plugin_root: Path, destination: Path, copy_plugin: b
         host / "src/sparkrun/__init__.py",
         host / FEATURES_PATH,
         host / IN_TREE_PLUGINS_PATH,
+        host / "src/sparkrun/core/application_profile.py",
+        host / "src/sparkrun/proxy/contracts.py",
+        host / "src/sparkrun/proxy/supervisor.py",
         plugin_root / "plugin.toml",
         plugin_source / "__init__.py",
     ]
     missing = [str(path) for path in required if not path.is_file()]
     if missing:
         raise AssemblyError(
-            "the selected checkout does not expose the sparkrun in-tree plugin seams; "
-            "select a compatible branch such as develop-next (missing: %s)" % ", ".join(missing)
+            "the selected checkout does not expose the Sparkrun 0.4 plugin contracts; "
+            "select a compatible 0.4 host (missing: %s)" % ", ".join(missing)
         )
 
     cold_mode = os.environ.get("SPARKRUN_DEV_COLDSNAP", "").strip()
@@ -217,10 +175,6 @@ def assemble(*, host: Path, plugin_root: Path, destination: Path, copy_plugin: b
     _remove_path(temporary)
     try:
         shutil.copytree(host, temporary, symlinks=True, ignore=_ignore)
-
-        _apply_host_seams(temporary, plugin_root)
-        _apply_host_fix(temporary, plugin_root / "compat/sparkrun-run-path.patch", "shared run-path")
-        _apply_host_fix(temporary, plugin_root / "compat/sparkrun-proxy-unload.patch", "proxy unload")
 
         assembled_plugin = temporary / PLUGIN_MODULE_PATH
         _remove_path(assembled_plugin)

@@ -11,12 +11,11 @@ vendored by a compatible sparkrun distribution as `sparkrun.plugins.sparkroute`.
 It supervises the gateway and connects model discovery and workload lifecycle
 controls to sparkrun.
 
-**Host compatibility:** the published Sparkrun 0.3.8 package does not yet bundle
-or discover this plugin. Installing this wheel alone does not enable it. Use
-the tested development assembly below, or a host distribution that vendors the
-plugin and includes the required compatibility hooks. `compat/host.toml` pins
-the tested host source and patches. The commands below require that assembly
-or a compatible distribution.
+**Host compatibility:** this application-profile feature branch requires
+Sparkrun `>=0.4,<0.5`. Use a compatible 0.4 checkout with `SPARKRUN_CHECKOUT`
+until those host changes are released. `compat/host.toml` pins the host source
+used by CI. Installing this wheel alone does not enable the gateway; use the
+development assembly below or a distribution that vendors this plugin.
 
 The integration starts SparkRoute with `-sparkrun` to enable the recipe catalog
 and lifecycle controller. Standalone SparkRoute leaves this integration disabled
@@ -53,20 +52,17 @@ source dev.sh
 pytest
 ```
 
-`dev.sh` copies the host to `.dev/sparkrun-with-sparkroute`, applies any required
-reviewed host compatibility hooks there, and links this checkout's live plugin
-source into its in-tree package. `compat/host.toml` records the tested host base;
-`compat/sparkrun-host-seams.patch` carries the generic hooks awaiting upstream
-integration. `compat/sparkrun-run-path.patch` keeps proxy load on the normal run
-API and preserves resolved clusters through run, proxy load, and benchmark.
-Each patch is skipped when its changes are already integrated. An
+`dev.sh` copies the 0.4 host to `.dev/sparkrun-with-sparkroute` and links this
+checkout's live plugin source into its in-tree package. `compat/host.toml`
+records the tested host base. The assembly requires the application-profile
+and shared gateway interfaces; it no longer patches older host APIs. An
 incompatible host fails before replacing the existing development assembly.
-The original checkout is never fetched, switched, or edited. The patch is a
-development aid; production sparkrun incorporates the host changes itself.
+The original checkout is never fetched, switched, or edited.
 
 Without `SPARKRUN_CHECKOUT`, the setup script manages a clone of the official
 sparkrun repository. `SPARKRUN_BRANCH` selects its branch (currently `develop-next` by default). Until the hooks are
-released, use the commit in `compat/host.toml` or the integration host branch.
+released, select the compatible 0.4 feature branch explicitly with
+`SPARKRUN_CHECKOUT` or `SPARKRUN_BRANCH`.
 Setup also updates recipe registries and installs local pre-commit hooks, as
 in the ColdSnap plugin workflow.
 
@@ -250,8 +246,7 @@ The integration is AGPL-3.0-only with the additional permission in
 exception preserves the licensing of sparkrun's Apache-2.0 portions while
 retaining the plugin's AGPL obligations. Both notices ship inside the package.
 SparkRoute OSS is separately distributed under its own AGPL license.
-Repository scripts and host patches retain their BSD-3-Clause and Apache-2.0
-licenses; see [NOTICE](NOTICE), [REUSE.toml](REUSE.toml), and [LICENSES](LICENSES).
+Repository tooling retains its BSD-3-Clause license; see [NOTICE](NOTICE), [REUSE.toml](REUSE.toml), and [LICENSES](LICENSES).
 
 The initial source was extracted from sparkrun's
 `feature/llm-gateway-integration` at
@@ -388,8 +383,16 @@ for the YAML schema, examples, and ownership behavior.
 
 The plugin declares `application_profile_api = 1` in `plugin.toml`. Hosts implementing
 `sparkrun.core.application_profile` (`ApplicationProfile`, API version 1) preserve this declaration in their verified vendor metadata and can
-check compatibility before importing the integration. Older hosts without the
-profile API retain the existing Sparkrun behavior and dependency range.
+check compatibility before importing the integration. This branch requires the
+0.4 host API; use a released older plugin with 0.3 hosts.
+
+Gateway implementations use the supported `sparkrun.proxy.supervisor` and
+`sparkrun.proxy.contracts` interfaces. `AdminError` implements
+`GatewayOperationError` directly, retaining its HTTP status, code, retryability,
+and transport cause. `query_models()` returns immutable `ProxyModel` records
+and raises `GatewayQueryError` for unavailable or malformed status responses.
+An empty tuple means a successful query with no models. The host needs no
+SparkRoute-specific error adapter.
 
 Under an alternate profile, binary acquisition uses the active host cache resolver.
 `SPARKROUTE_BINARY` is the only development binary override for every application

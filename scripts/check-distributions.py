@@ -16,7 +16,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = "sparkrun/plugins/sparkroute/"
-LEGAL = ("LICENSE", "LICENSE_EXCEPTION", "NOTICE", "LICENSES/AGPL-3.0-only.txt", "LICENSES/Apache-2.0.txt", "LICENSES/BSD-3-Clause.txt")
+LEGAL = ("LICENSE", "LICENSE_EXCEPTION", "NOTICE", "LICENSES/AGPL-3.0-only.txt", "LICENSES/BSD-3-Clause.txt")
 ROOT_FILES = {
     ".pre-commit-config.yaml",
     ".gitattributes",
@@ -30,7 +30,7 @@ ROOT_FILES = {
     "pyproject.toml",
     "MANIFEST.in",
 }
-SOURCE_PATTERNS = ("scripts/*.py", "tests/*.py", ".github/workflows/*.yml", "compat/*.patch", "compat/*.toml")
+SOURCE_PATTERNS = ("scripts/*.py", "tests/*.py", ".github/workflows/*.yml", "compat/*.toml")
 DOCS = {"docs/SPARKROUTE_BRIDGE.md", "docs/RELEASING.md"}
 
 

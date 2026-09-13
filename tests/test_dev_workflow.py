@@ -40,6 +40,10 @@ def _checkout(path: Path) -> None:
     (path / "src/sparkrun/api/proxy/_ops.py").write_text("engine._await_exit(pid, RESTART_WAIT_SECONDS)\n")
     (path / "src/sparkrun/api/_catalog.py").write_text("def catalog_cluster_capacity(): pass\n")
     (path / "src/sparkrun/core").mkdir()
+    (path / "src/sparkrun/core/application_profile.py").touch()
+    (path / "src/sparkrun/proxy").mkdir()
+    (path / "src/sparkrun/proxy/contracts.py").touch()
+    (path / "src/sparkrun/proxy/supervisor.py").touch()
     (path / "src/sparkrun/core/readiness.py").write_text('OPENAI_RESPONSES_STREAM = "openai-responses-stream-v1"\n')
     (path / "src/sparkrun/core/recipe.py").write_text("def export_plugin_items(): pass\n")
     (path / "src/sparkrun/core/recipe_items.py").write_text("affects_fingerprint: bool = True\n")
@@ -284,7 +288,19 @@ def test_binary_preparation_failure_does_not_report_success(tmp_path):
     assert not Path(env["FAKE_SPARKRUN_LOG"]).exists()
 
 
-@pytest.mark.parametrize("missing", ["api/_catalog.py", "core/readiness.py", "core/recipe.py", "core/recipe_items.py", "api/proxy/_ops.py"])
+@pytest.mark.parametrize(
+    "missing",
+    [
+        "api/_catalog.py",
+        "core/readiness.py",
+        "core/recipe.py",
+        "core/recipe_items.py",
+        "api/proxy/_ops.py",
+        "core/application_profile.py",
+        "proxy/contracts.py",
+        "proxy/supervisor.py",
+    ],
+)
 def test_old_shared_host_uses_compatible_project_checkout(tmp_path: Path, missing):
     plugin, git_log, env = _development_tree(tmp_path)
     project_api = plugin / ".dev/sparkrun/src/sparkrun/api"

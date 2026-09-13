@@ -13,7 +13,10 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 fi
 
 _sparkrun_sparkroute_host_supported() {
-    grep -q "def catalog_cluster_capacity(" "$1/src/sparkrun/api/_catalog.py" 2>/dev/null &&
+    [[ -f "$1/src/sparkrun/core/application_profile.py" &&
+       -f "$1/src/sparkrun/proxy/contracts.py" &&
+       -f "$1/src/sparkrun/proxy/supervisor.py" ]] &&
+        grep -q "def catalog_cluster_capacity(" "$1/src/sparkrun/api/_catalog.py" 2>/dev/null &&
         grep -q "def native_api_options(" "$1/src/sparkrun/runtimes/base.py" 2>/dev/null &&
         grep -q '^OPENAI_RESPONSES_STREAM =' "$1/src/sparkrun/core/readiness.py" 2>/dev/null &&
         grep -q 'affects_fingerprint: bool = True' "$1/src/sparkrun/core/recipe_items.py" 2>/dev/null &&

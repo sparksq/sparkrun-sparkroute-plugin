@@ -7,13 +7,6 @@ combination with sparkrun in LICENSE_EXCEPTION. Preserve that notice alongside
 the plugin. The same license and permission texts are included in its package
 directory for source vendoring.
 
-The compatibility patches in compat/ modify the Apache-2.0-licensed sparkrun
-host. Their upstream source is https://github.com/spark-arena/sparkrun at the
-commit recorded in compat/host.toml. These patches remain under Apache-2.0;
-their context comes from the sparkrun contributors and their modifications
-are copyright 2026 Scitrera LLC and Fox Engine Ltd. See REUSE.toml and
-LICENSES/Apache-2.0.txt.
-
 scripts/generate-ci-gha.py and scripts/update-versions.py are BSD-3-Clause
 repo-tools launcher scripts, copyright 2026 Scitrera LLC and Fox Engine Ltd.
 The tool they invoke is https://github.com/scitrera/repo-tools, pinned in

@@ -11,7 +11,8 @@ releases contain a wheel and source distribution for inspection and vendoring.
 There is no PyPI or npm publishing job. Publishing a plugin artifact does not
 add it to a Sparkrun distribution: the host must vendor the snapshot, register
 the `gateway.sparkroute` feature, and include the generic compatibility hooks.
-Published Sparkrun 0.3.8 does not yet include this integration. See the
+This feature branch targets Sparkrun `>=0.4,<0.5`; the pinned host commit must
+be available in the host repository before remote CI can fetch it. See the
 [development setup](../DEV_PREVIEW.md) for the tested assembly.
 
 ## Release checks
@@ -48,7 +49,6 @@ Published Sparkrun 0.3.8 does not yet include this integration. See the
 The plugin is AGPL-3.0-only with the existing sparkrun combination permission
 in `LICENSE_EXCEPTION`. Preserve both texts when vendoring the package; they
 are duplicated inside the package so a source-only vendor operation carries
-them. Repository tooling and host patches retain their BSD-3-Clause and
-Apache-2.0 licenses, respectively. `NOTICE`, `REUSE.toml`, and `LICENSES/`
+them. Repository tooling retains its BSD-3-Clause license. `NOTICE`, `REUSE.toml`, and `LICENSES/`
 identify those exceptions. Dependencies and the separately downloaded gateway
 retain their own notices.

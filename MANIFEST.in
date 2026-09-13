@@ -11,7 +11,7 @@ include versions.yaml
 recursive-include scripts *.py
 recursive-include tests *.py
 recursive-include .github/workflows *.yml
-recursive-include compat *.patch *.toml
+recursive-include compat *.toml
 include docs/SPARKROUTE_BRIDGE.md
 include docs/RELEASING.md
 include REUSE.toml
