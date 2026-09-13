@@ -421,5 +421,7 @@ SPARKRUN_CHECKOUT=/path/to/sparkrun .venv/bin/python -m pytest tests/ -q
 
 The test harness binds detached workers to the same host source. Profile tests
 exercise both launch modes, cache/override isolation, callback selection and a
-fresh console-free child with an explicit config file. They skip profile-specific
-checks on a legacy host, while retaining tests for the legacy compatibility path.
+fresh console-free child with an explicit config file. Sparkrun 0.4 application
+APIs are required; unsupported-host fallbacks have been removed. The top-level
+plugin module declares `SPARKRUN_PLUGIN_API_VERSION = 1`, independently of the
+application-profile schema version.
