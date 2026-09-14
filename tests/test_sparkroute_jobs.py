@@ -140,7 +140,9 @@ def test_retry_recovers_persisted_job_after_successful_worker_is_gone():
         mock.patch.object(operations, "_recover_launch", return_value={"state": "ready"}) as recover,
         mock.patch.object(api, "run") as run,
     ):
-        assert operations._ensure_ready(activation(), activation().binding, object(), "fingerprint", object()) == {"state": "ready"}
+        assert operations._ensure_ready(activation(), activation().binding, object(), "fingerprint", object(), overrides={}) == {
+            "state": "ready"
+        }
     assert recover.call_args.args[0]["port"] == 8123
     assert recover.call_args.args[0]["cluster_id"] == "recorded-job"
     run.assert_not_called()
@@ -150,7 +152,7 @@ def test_synchronous_bridge_waits_on_same_durable_operation():
     request = Request("test", "ensure_ready", binding=activation().binding, wait=True)
     with (
         mock.patch.object(operations, "_require_feature_enabled"),
-        mock.patch.object(operations, "_resolve_binding", return_value=(object(), "fingerprint")),
+        mock.patch.object(operations, "_resolve_binding", return_value=(object(), "fingerprint", {})),
         mock.patch.object(jobs, "start_operation", return_value={"operation_id": "same", "state": "running"}) as start,
         mock.patch.object(jobs, "wait_operation", return_value={"state": "ready"}) as wait,
         mock.patch.object(api, "run") as run,
