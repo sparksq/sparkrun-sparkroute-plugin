@@ -84,7 +84,7 @@ def start_operation(request: Request, *, sctx) -> dict:
     if request.binding and not identity["revision"]:
         from .operations import _resolve_binding
 
-        _, fingerprint = _resolve_binding(request.binding, sctx)
+        _, fingerprint, _ = _resolve_binding(request.binding, sctx)
         request = replace(request, binding=replace(request.binding, recipe_revision=fingerprint))
         identity["revision"] = fingerprint
     key = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()

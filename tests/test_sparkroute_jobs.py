@@ -39,6 +39,23 @@ def test_workers_coalesce_same_workload_across_recipe_aliases_but_not_clusters(m
         assert jobs._path(sctx).stat().st_mode & 0o077 == 0
 
 
+def test_activation_without_revision_persists_resolved_identity():
+    sctx = api.default_sctx()
+    request = activation(revision=None)
+    with (
+        mock.patch.object(operations, "_resolve_binding", return_value=(object(), "resolved-revision", {"port": 9001})),
+        mock.patch.object(jobs.subprocess, "Popen", return_value=SimpleNamespace(pid=12345)),
+        mock.patch.object(jobs, "_alive", return_value=True),
+    ):
+        first = jobs.start_operation(request, sctx=sctx)
+        second = jobs.start_operation(activation(revision="resolved-revision"), sctx=sctx)
+    assert first["operation_id"] == second["operation_id"]
+    with jobs._connect(jobs._path(sctx)) as db:
+        persisted = json.loads(db.execute("SELECT request FROM operations").fetchone()[0])
+    assert persisted["binding"]["recipe_revision"] == "resolved-revision"
+    assert request.binding.recipe_revision is None
+
+
 def test_dead_worker_reuses_operation_and_preserves_placement():
     sctx = api.default_sctx()
     with mock.patch.object(jobs.subprocess, "Popen", return_value=SimpleNamespace(pid=12345)):
