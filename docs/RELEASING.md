@@ -11,7 +11,7 @@ releases contain a wheel and source distribution for inspection and vendoring.
 There is no PyPI or npm publishing job. Publishing a plugin artifact does not
 add it to a Sparkrun distribution: the host must vendor the snapshot, register
 the `gateway.sparkroute` feature, and include the generic compatibility hooks.
-This feature branch targets Sparkrun `>=0.4,<0.5`; the pinned host commit must
+Plugin v0.2.0 targets Sparkrun `>=0.4,<0.5`; the pinned host commit must
 be available in the host repository before remote CI can fetch it. See the
 [development setup](../DEV_PREVIEW.md) for the tested assembly.
 

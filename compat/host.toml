@@ -5,4 +5,4 @@
 # Sparkrun 0.4 host providing application profiles and shared gateway contracts.
 # Development assembly copies this host without applying compatibility patches.
 repository = "https://github.com/spark-arena/sparkrun.git"
-commit = "943973fc3c114e7a5e106c543c0204116e7a89e9"
+commit = "8540294dce798fe09af1e1935927b2dd94b4679a"

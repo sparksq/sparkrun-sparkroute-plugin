@@ -11,7 +11,7 @@ vendored by a compatible sparkrun distribution as `sparkrun.plugins.sparkroute`.
 It supervises the gateway and connects model discovery and workload lifecycle
 controls to sparkrun.
 
-**Host compatibility:** this application-profile feature branch requires
+**Host compatibility:** plugin v0.2.0 requires
 Sparkrun `>=0.4,<0.5`. Use a compatible 0.4 checkout with `SPARKRUN_CHECKOUT`
 until those host changes are released. `compat/host.toml` pins the host source
 used by CI. Installing this wheel alone does not enable the gateway; use the
@@ -36,7 +36,7 @@ sparkrun proxy ui
 
 The plugin is currently distributed as source for development and vendoring;
 GitHub releases can provide source and wheel artifacts. There is no package
-registry publisher. The default gateway is SparkRoute v0.0.2, with verified
+registry publisher. The default gateway is SparkRoute v0.0.3, with verified
 archive digests for all six controller platforms. A compatible host downloads
 the gateway when it starts, without requiring GitHub authentication. Installing
 the package does not download or start a gateway.
@@ -106,7 +106,7 @@ sets in the same lists, with generated entries grayed out and read-only.
 Model routing offers strategy guidance, explicit agent-stage model roles, and
 switching-sensitivity controls. The preview can simulate tool failures, edits,
 passing tests, and compaction without calling or starting models. See the
-[routing guide](https://github.com/sparksq/sparkroute/blob/v0.0.2/docs/MODEL_ROUTING.md)
+[routing guide](https://github.com/sparksq/sparkroute/blob/v0.0.3/docs/MODEL_ROUTING.md)
 for strategy configuration and examples.
 
 The top-right **Configuration preset** selector shows **Default** or a named
@@ -211,7 +211,7 @@ pinned recipe contents; changed recipes require a fresh preview. Unknown API
 model names never trigger an inferred registry search or launch.
 
 This flow requires the catalog API in the sparkrun core commit pinned in
-`compat/host.toml`. The bridge uses strict schema v4; update the plugin and
+`compat/host.toml`. The bridge uses strict schema v5; update the plugin and
 pinned SparkRoute binary together. Named cluster metadata controls placement
 and adoption. Older job records without it remain unknown; overlapping host
 sets are not used to guess a cluster. See [the bridge contract](docs/SPARKROUTE_BRIDGE.md)
@@ -293,9 +293,13 @@ Unknown capacity is never presented as free capacity.
 
 Under **Virtual Models / Aliases → Request profiles**, add `low` or `xhigh` and
 API-specific JSON overrides. For Chat use `{"reasoning_effort":"xhigh"}`; for
-Responses use `{"reasoning":{"effort":"xhigh"}}`. These are explicit public
-virtual models sharing the original deployment. Parameters override caller
-values before translation; request structure and routing fields are protected.
+Responses use `{"reasoning":{"effort":"xhigh"}}`. New profiles explicitly inherit
+their parent model's routing. Recipe profiles
+resolve different parameters for each deployment, and automatically follow
+recipe changes while preserving operator overrides. Incoming API parameters
+apply before translation; runtime API parameters apply afterward. Request
+structure and routing fields are protected. See [recipe defaults](src/sparkrun/plugins/sparkroute/README.md#recipe-defaults)
+for API support, inheritance, refresh, and migration behavior.
 
 **Model Deployments → Model metadata** configures size (billions of parameters),
 context length, token prices per million tokens, and tags. Model Routing inherits

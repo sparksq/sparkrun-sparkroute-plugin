@@ -19,11 +19,16 @@ diagnostics and logging use standard error. The command is intentionally omitted
 from `sparkrun --help`; its versioned JSON schema, rather than Click's command
 presentation, is the compatibility boundary.
 
-Schema version 4 supports `capabilities`, `resolve`, `ensure_ready`, `discover`,
+Schema version 5 supports `capabilities`, `resolve`, `ensure_ready`, `discover`,
 `status`, `stop`, `workloads`, `sleep`, `wake`, `workload_status`, and the catalog operations below. Requests carry a
 caller-generated `request_id`; every response repeats it. Both sides use strict
 schema decoding. Update the plugin and gateway together; earlier schemas are
-not accepted.
+not accepted. Version 5 accompanies deployment-specific request profiles and
+explicit virtual-model profile bindings. Catalog details include
+`profile_source_kind` (`recipe` or immutable uploaded `snapshot`); `sparkroute`
+settings accept ingress/upstream profile implementations. Discovery projection
+uses `discovery_job_ids`, which the gateway must enforce during endpoint matching.
+A bridge-v4 gateway cannot safely consume this projection.
 
 A binding contains a configured recipe reference, its sparkrun fingerprint,
 named cluster candidates, and bounded recipe overrides. Discovery, adoption,
@@ -90,12 +95,12 @@ Deleting a route disables its idle policy without stopping the job.
 SparkRoute v0.0.2 can also apply an opt-in `endpoint_source.recovery` policy to
 persistently failing owned jobs. The gateway counts qualifying failed half-open
 probes, drains shared request leases, and uses the existing exact-job `stop` and
-durable `ensure_ready` operations for recovery. Bridge schema v4 remains unchanged.
+durable `ensure_ready` operations for recovery. Bridge schema v5 retains this recovery contract.
 Recovery always performs a stop, independently of an idle action that uses sleep.
 Readiness, ownership checks, and reconciliation of uncertain prior launches remain
 the bridge's responsibility. Recovery timers, backoff, budgets, and operator status
 belong to the gateway; see SparkRoute's
-[workload recovery guide](https://github.com/sparksq/sparkroute/blob/v0.0.2/docs/WORKLOAD_RECOVERY.md).
+[workload recovery guide](https://github.com/sparksq/sparkroute/blob/v0.0.3/docs/WORKLOAD_RECOVERY.md).
 
 ## Durable activation and timing
 
@@ -180,7 +185,7 @@ A configuration tool can obtain the exact fingerprint, including overrides, by
 sending a `resolve` request. For example:
 
 ```json
-{"schema_version":4,"request_id":"resolve-1","operation":"resolve","binding":{"recipe":"@local/qwen","cluster_candidates":["spark-a"],"overrides":{"tensor_parallel":"2"}}}
+{"schema_version":5,"request_id":"resolve-1","operation":"resolve","binding":{"recipe":"@local/qwen","cluster_candidates":["spark-a"],"overrides":{"tensor_parallel":"2"}}}
 ```
 
 The returned `result.recipe_revision` is the value pinned in the gateway's

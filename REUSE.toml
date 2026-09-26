@@ -25,3 +25,10 @@ path = ["LICENSE_EXCEPTION", "src/sparkrun/plugins/sparkroute/LICENSE_EXCEPTION"
 precedence = "closest"
 SPDX-FileCopyrightText = ["2026 Scitrera LLC", "2026 Fox Engine Ltd"]
 SPDX-License-Identifier = "AGPL-3.0-only"
+
+# Shared request-profile contract fixtures keep their JSON bytes intact.
+[[annotations]]
+path = ["tests/fixtures/*.json"]
+precedence = "closest"
+SPDX-FileCopyrightText = ["2026 Scitrera LLC", "2026 Fox Engine Ltd"]
+SPDX-License-Identifier = "AGPL-3.0-only"

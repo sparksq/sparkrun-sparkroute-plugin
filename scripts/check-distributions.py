@@ -30,7 +30,7 @@ ROOT_FILES = {
     "pyproject.toml",
     "MANIFEST.in",
 }
-SOURCE_PATTERNS = ("scripts/*.py", "tests/*.py", ".github/workflows/*.yml", "compat/*.toml")
+SOURCE_PATTERNS = ("scripts/*.py", "tests/*.py", "tests/fixtures/*.json", ".github/workflows/*.yml", "compat/*.toml")
 DOCS = {"docs/SPARKROUTE_BRIDGE.md", "docs/RELEASING.md"}
 
 
