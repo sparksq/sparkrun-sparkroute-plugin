@@ -82,7 +82,7 @@ credentials, bindings, and workloads are independent of a production setup.
 The test suite redirects these paths and disables external plugin loading and
 registry fetching.
 
-Plugin v0.2.0 pins SparkRoute v0.0.3 and its matching source. This pairing uses
+Plugin v0.2.1 pins SparkRoute v0.0.3 and its matching source. This pairing uses
 bridge schema v5 for recipe request profiles and includes opt-in automatic
 workload recovery. Clear any explicit binary override before sourcing `dev.sh`
 to select the pinned build. The host must provide the Sparkrun 0.4 application

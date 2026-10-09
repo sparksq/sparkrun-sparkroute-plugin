@@ -11,11 +11,16 @@ vendored by a compatible sparkrun distribution as `sparkrun.plugins.sparkroute`.
 It supervises the gateway and connects model discovery and workload lifecycle
 controls to sparkrun.
 
-**Host compatibility:** plugin v0.2.0 requires
+**Host compatibility:** plugin v0.2.1 requires
 Sparkrun `>=0.4,<0.5`. Use a compatible 0.4 checkout with `SPARKRUN_CHECKOUT`
 until those host changes are released. `compat/host.toml` pins the host source
 used by CI. Installing this wheel alone does not enable the gateway; use the
 development assembly below or a distribution that vendors this plugin.
+
+`sparkrun proxy start --foreground` (what `sparkrun proxy systemd` runs)
+reconciles the gateway at start. On hosts that provide
+`GatewaySupervisor.supervise_foreground` it exits 0 on a requested stop and
+non-zero on a crash; older 0.4 hosts wait on the gateway process directly.
 
 The integration starts SparkRoute with `-sparkrun` to enable the recipe catalog
 and lifecycle controller. Standalone SparkRoute leaves this integration disabled
