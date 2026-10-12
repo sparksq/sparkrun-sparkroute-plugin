@@ -187,9 +187,9 @@ def test_wait_timeout_does_not_cancel_worker():
     status.assert_not_called()
 
 
-def test_real_detached_worker_persists_failure_without_launching(monkeypatch):
+def test_real_detached_worker_persists_failure_without_launching(monkeypatch, managed_plugin):
     monkeypatch.setenv("SPARKRUN_FEATURE_GATEWAY_SPARKROUTE", "1")
-    sctx = api.default_sctx()
+    sctx = managed_plugin
     request = activation(recipe="catalog:" + "0" * 32)
     operation = jobs.start_operation(request, sctx=sctx)
     deadline = time.monotonic() + 20

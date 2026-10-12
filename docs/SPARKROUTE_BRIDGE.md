@@ -1,4 +1,8 @@
 <!--
+
+For the optional direct HTTP/SSE transport and shared workload recovery, see
+[SPARKROUTE_DAEMON.md](SPARKROUTE_DAEMON.md). The protocol below describes the
+explicit legacy stdio transport.
 SPDX-FileCopyrightText: 2026 Scitrera LLC
 SPDX-FileCopyrightText: 2026 Fox Engine Ltd
 SPDX-License-Identifier: AGPL-3.0-only

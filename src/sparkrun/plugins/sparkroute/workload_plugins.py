@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import importlib.util
-import time
 
 from .protocol import ProtocolError
 
@@ -38,16 +37,15 @@ def _state_path(sctx):
 
 
 def _stored_state(job, sctx) -> str:
-    with _state_path(sctx) as db:
-        db.execute("CREATE TABLE IF NOT EXISTS workload_states (job_id TEXT PRIMARY KEY, state TEXT, updated REAL)")
-        row = db.execute("SELECT state FROM workload_states WHERE job_id=?", (job.cluster_id,)).fetchone()
-    return row["state"] if row else str((job.metadata or {}).get("runtime_info", {}).get("lifecycle_state") or "running")
+    from sparkrun.api.workloads import Receipts
+
+    return Receipts(sctx).state(job.cluster_id) or str((job.metadata or {}).get("runtime_info", {}).get("lifecycle_state") or "running")
 
 
 def _set_state(job, state, sctx):
-    with _state_path(sctx) as db:
-        db.execute("CREATE TABLE IF NOT EXISTS workload_states (job_id TEXT PRIMARY KEY, state TEXT, updated REAL)")
-        db.execute("INSERT OR REPLACE INTO workload_states VALUES (?, ?, ?)", (job.cluster_id, state, time.time()))
+    from sparkrun.api.workloads import Receipts
+
+    Receipts(sctx).state(job.cluster_id, state)
 
 
 def describe_job(job, *, sctx, availability=None) -> dict:

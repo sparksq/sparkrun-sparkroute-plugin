@@ -33,7 +33,10 @@ def recipe_item_registered(monkeypatch):
     from sparkrun.plugins.sparkroute import register
 
     monkeypatch.setattr(recipe_items, "_RECIPE_ITEMS", dict(recipe_items._RECIPE_ITEMS))
-    register(None)
+    from sparkrun.core.plugin_identity import PluginIdentity, plugin_registration
+
+    with plugin_registration(PluginIdentity("sparkroute", "sparkrun.plugins.sparkroute", ("in-tree", "sparkrun.plugins.sparkroute", None))):
+        register(None)
 
 
 def binding(revision="one", profiles=None, model="coding"):

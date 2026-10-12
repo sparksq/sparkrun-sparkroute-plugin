@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Fox Engine Ltd
 # SPDX-License-Identifier: AGPL-3.0-only
 
-# Sparkrun 0.4 host providing application profiles and shared gateway contracts.
+# Sparkrun 0.4 host providing shared daemon workloads and manager credentials.
 # Development assembly copies this host without applying compatibility patches.
 repository = "https://github.com/spark-arena/sparkrun.git"
-commit = "8540294dce798fe09af1e1935927b2dd94b4679a"
+commit = "ed8fcde835f2c8cfaabb45418bd4ef10ed255393"

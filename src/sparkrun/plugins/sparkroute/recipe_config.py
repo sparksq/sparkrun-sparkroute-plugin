@@ -141,6 +141,9 @@ def catalog_sparkroute(details: Mapping[str, Any], overrides: dict[str, Any] | N
     from .metadata import build_model_metadata
 
     details = dict(details)
+    source_kind = details.pop("source_kind", "")
+    normalized = details.pop("normalized_overrides", {})
+    overrides = {**normalized, **(overrides or {})}
     facets = details.get("metadata") or {}
     params_b = facets.get("parameters_b")
     recipe = SimpleNamespace(
@@ -158,7 +161,8 @@ def catalog_sparkroute(details: Mapping[str, Any], overrides: dict[str, Any] | N
         **details,
         "sparkroute": settings,
         "profile_source_kind": "snapshot"
-        if "/recipe-catalog/imports/" in str(details.get("source_path", "")).replace("\\", "/")
+        if source_kind == "imported"
+        or (not source_kind and "/recipe-catalog/imports/" in str(details.get("source_path", "")).replace("\\", "/"))
         else "recipe",
         "capabilities": sorted(set(details.get("capabilities", [])) | set(settings.get("capabilities", []))),
     }

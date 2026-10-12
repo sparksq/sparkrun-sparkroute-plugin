@@ -50,7 +50,10 @@ def _gateway_feature_enabled(monkeypatch):
 
     from sparkrun.plugins.sparkroute import register
 
-    register(None)
+    from sparkrun.core.plugin_identity import PluginIdentity, plugin_registration
+
+    with plugin_registration(PluginIdentity("sparkroute", "sparkrun.plugins.sparkroute", ("in-tree", "sparkrun.plugins.sparkroute", None))):
+        register(None)
 
 
 def _proxy_config(**changes):

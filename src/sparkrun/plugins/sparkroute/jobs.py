@@ -91,6 +91,9 @@ def start_operation(request: Request, *, sctx) -> dict:
     path = _path(sctx)
     with _connect(path) as db:
         db.execute("BEGIN IMMEDIATE")
+        from .cutover import require_transport
+
+        require_transport(db, "bridge")
         if request.operation in {"ensure_ready", "sleep", "wake"}:
             for active in db.execute("SELECT * FROM operations WHERE state='running' AND key!=?", (key,)).fetchall():
                 other = json.loads(active["request"])
@@ -125,12 +128,21 @@ def start_operation(request: Request, *, sctx) -> dict:
         # The child blocks on this transaction until its PID is committed.
         from ._application_profile import child_environment
 
+        log_fd = os.open(path.parent / (operation_id + ".log"), os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600)
         try:
             child = subprocess.Popen(
-                [sys.executable, "-m", "sparkrun.plugins.sparkroute.jobs", str(sctx.config.config_path), operation_id],
+                [
+                    sys.executable,
+                    "-c",
+                    "from sparkrun.application import initialize; initialize(); "
+                    "from pathlib import Path; import sys; from sparkrun.plugins.sparkroute.jobs import run_worker; "
+                    "run_worker(Path(sys.argv[1]), sys.argv[2])",
+                    str(sctx.config.config_path),
+                    operation_id,
+                ],
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=log_fd,
                 close_fds=True,
                 env=child_environment(sctx.config.config_path),
                 creationflags=(subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP) if os.name == "nt" else 0,
@@ -138,6 +150,8 @@ def start_operation(request: Request, *, sctx) -> dict:
             )
         except OSError as exc:
             raise ProtocolError("worker_unavailable", "Could not start the sparkrun operation worker", retryable=True) from exc
+        finally:
+            os.close(log_fd)
         db.execute(
             "UPDATE operations SET pid=?, updated=?, request=?, state='running', result=NULL, error=NULL WHERE id=?",
             (child.pid, time.time(), json.dumps(asdict(request)), operation_id),
@@ -219,7 +233,7 @@ def run_worker(config_path: Path, operation_id: str) -> None:
     from sparkrun.application import initialize
     import logging
     from logging.handlers import RotatingFileHandler
-    from .operations import _ensure_ready, _require_feature_enabled, _resolve_binding
+    from .operations import _require_feature_enabled, _resolve_binding
 
     global _current
     sctx = initialize(config_path=config_path)
@@ -239,10 +253,12 @@ def run_worker(config_path: Path, operation_id: str) -> None:
         _require_feature_enabled()
         request = parse_request(json.loads(row["request"]))
         if request.operation in {"sleep", "wake"}:
-            from .workload_plugins import control_workload
-
             progress(request.operation + " workload")
-            result = control_workload(request, sctx=sctx)
+            from .bridge_workloads import invoke
+
+            result = invoke(
+                "workloads." + request.operation, {"binding": asdict(request.binding), "cluster_id": request.cluster_id}, sctx, legacy=True
+            )
         elif request.operation == "catalog_capacity":
             progress("checking cluster occupancy")
             result = api.catalog_cluster_capacity(request.arguments["cluster"], sctx=sctx)
@@ -257,7 +273,15 @@ def run_worker(config_path: Path, operation_id: str) -> None:
             if binding is None:
                 raise ProtocolError("invalid_request", "operation requires a binding")
             recipe, fingerprint, overrides = _resolve_binding(binding, sctx)
-            result = _ensure_ready(replace(request, wait=True), binding, recipe, fingerprint, sctx, overrides=overrides)
+            from .bridge_workloads import invoke
+
+            result = invoke(
+                "workloads.ensure_ready",
+                {"binding": asdict(replace(binding, recipe_revision=fingerprint)), "timeout": request.timeout_seconds},
+                sctx,
+                legacy=True,
+            )
+            result.get("endpoint", {}).pop("observed_at", None)
         with _connect(path) as db:
             db.execute(
                 "UPDATE operations SET state='succeeded', phase='complete', result=?, updated=? WHERE id=?",

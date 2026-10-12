@@ -53,7 +53,7 @@ def _json(url, body=None, token=None):
 
 
 @pytest.mark.parametrize("shared_listener", [False, True])
-def test_real_gateway_is_supervised_authenticated_and_serves_warm_aliases(tmp_path, monkeypatch, shared_listener):
+def test_real_gateway_is_supervised_authenticated_and_serves_warm_aliases(tmp_path, monkeypatch, shared_listener, managed_plugin):
     calls = []
 
     class Upstream(BaseHTTPRequestHandler):
@@ -103,7 +103,10 @@ def test_real_gateway_is_supervised_authenticated_and_serves_warm_aliases(tmp_pa
     monkeypatch.setenv("SPARKRUN_FEATURE_GATEWAY_SPARKROUTE", "1")
     monkeypatch.setenv("SPARKROUTE_BINARY", str(Path(os.environ["SPARKROUTE_TEST_BINARY"]).resolve()))
     monkeypatch.setenv("SPARKROUTE_OPERATIONS_ADDRESS", "127.0.0.1:0")
-    register(None)
+    from sparkrun.core.plugin_identity import PluginIdentity, plugin_registration
+
+    with plugin_registration(PluginIdentity("sparkroute", "sparkrun.plugins.sparkroute", ("in-tree", "sparkrun.plugins.sparkroute", None))):
+        register(None)
     data_port = _port()
     config = SimpleNamespace(
         bindings=[],
@@ -117,7 +120,12 @@ def test_real_gateway_is_supervised_authenticated_and_serves_warm_aliases(tmp_pa
         gateway_allow_insecure_admin_nonloopback=False,
     )
     engine = SparkrouteEngine(
-        host="127.0.0.1", port=data_port, master_key="test-only-token", state_dir=tmp_path / "supervisor", proxy_config=config
+        host="127.0.0.1",
+        port=data_port,
+        master_key="test-only-token",
+        state_dir=tmp_path / "supervisor",
+        proxy_config=config,
+        sctx=managed_plugin,
     )
     try:
         assert engine.start() == 0

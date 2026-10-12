@@ -88,3 +88,37 @@ def isolate_sparkrun_state(tmp_path: Path, monkeypatch):
     bootstrap._variables = None
     if reset_declared_registries is not None:
         reset_declared_registries()
+
+
+@pytest.fixture
+def managed_plugin(tmp_path, monkeypatch):
+    """A genuine source-copy installation available to separately bootstrapped children."""
+    import shutil
+    from sparkrun import api
+    from sparkrun.core.plugin_manager import PluginManager
+    from sparkrun.core.plugin_manifest import read_manifest
+    from sparkrun.core.plugin_sources import PluginCandidate
+
+    monkeypatch.delenv("SPARKRUN_NO_EXTERNAL_PLUGINS", raising=False)
+    monkeypatch.setenv("SPARKRUN_FEATURE_GATEWAY_SPARKROUTE", "1")
+    monkeypatch.setenv("SPARKRUN_CACHE_DIR", str(tmp_path / "cache"))
+    ctx = api.default_sctx()
+    ctx.config.set("features", {"daemon": True, "core.external_plugins": True, "gateway.sparkroute": True, "plugins.oci_relay": False})
+    ctx.config.set("cache_dir", str(tmp_path / "cache"))
+    ctx.config.save()
+    snapshot = tmp_path / "source-copy"
+    snapshot.mkdir()
+    for name in ("plugin.toml", "pyproject.toml"):
+        shutil.copy2(ROOT / name, snapshot / name)
+    shutil.copytree(ROOT / "src", snapshot / "src", ignore=shutil.ignore_patterns("__pycache__"))
+    metadata = read_manifest(snapshot)
+    candidate = PluginCandidate(
+        metadata, snapshot, {"kind": "git", "url": metadata.repository, "ref": "main", "ref_kind": "branch"}, "1" * 40
+    )
+    original = list(sparkrun.plugins.__path__)
+    try:
+        sparkrun.plugins.__path__[:] = [p for p in original if Path(p).resolve() != ROOT / "src/sparkrun/plugins"]
+        PluginManager(ctx.config).install(candidate, trust=True, enable=True)
+    finally:
+        sparkrun.plugins.__path__[:] = original
+    return ctx

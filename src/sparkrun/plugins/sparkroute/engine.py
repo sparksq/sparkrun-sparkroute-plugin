@@ -136,6 +136,45 @@ class SparkrouteEngine(GatewaySupervisor):
         self._discovery_labels: dict[str, Any] | None = None
         self.credential = ReconcilerCredential(self.state_dir / "gateway")
 
+    @property
+    def daemon_transport(self) -> bool:
+        return getattr(self.proxy_config, "gateway_transport", "bridge") == "daemon"
+
+    @property
+    def daemon_connection_path(self) -> Path:
+        return self.state_dir / "gateway" / "daemon-client.json"
+
+    def _prepare_daemon(self, binary: Path) -> None:
+        """Validate both ends before launching a gateway in explicit daemon mode."""
+        if not self.daemon_transport:
+            return
+        from sparkrun.daemon.management import ensure_daemon, write_connection_descriptor
+        from sparkrun.daemon.state import Binding
+        from sparkrun.daemon.client import Client
+        from .cutover import select_transport
+
+        if self.sctx is None:
+            raise SparkrouteConfigError("Daemon transport requires the bound Sparkrun context")
+        # Installed older gateways must fail before any runtime state changes.
+        help_result = subprocess.run([str(binary), "-help"], capture_output=True, text=True, timeout=10)
+        if "sparkrun-daemon-connection" not in help_result.stdout + help_result.stderr:
+            raise SparkrouteConfigError("Installed SparkRoute binary lacks daemon transport; install the matching gateway build")
+        binding = Binding.from_config(self.sctx.config)
+        ensure_daemon(binding)
+        operations = Client(binding=binding).request("GET", "/v1/ops")
+        entries = operations.get("operations", operations.get("ops", [])) if isinstance(operations, dict) else operations
+        available = {entry["name"]: entry["version"] for entry in entries}
+        if any(
+            available.get(name) != 1
+            for name in ("workloads.ensure_ready", "workloads.inventory", "workloads.plugins", "plugins.sparkroute.endpoints.discover")
+        ):
+            raise SparkrouteConfigError("Daemon must expose the core workload API and SparkRoute endpoint projections")
+        select_transport(
+            "daemon",
+            sctx=self.sctx,
+            provision=lambda: write_connection_descriptor(binding, self.daemon_connection_path, manager="sparkroute"),
+        )
+
     def _state_payload(self) -> dict[str, Any]:
         return {
             "port": self.port,
@@ -385,9 +424,12 @@ class SparkrouteEngine(GatewaySupervisor):
             self.data_address,
             "-list-aliases",
             "-sparkrun",
-            "-sparkrun-command",
-            resolve_sparkrun_executable(),
         ]
+        cmd += (
+            ["-sparkrun-daemon-connection", str(self.daemon_connection_path)]
+            if self.daemon_transport
+            else ["-sparkrun-command", resolve_sparkrun_executable()]
+        )
         if self.master_key:
             cmd += [
                 "-caller-auth-mode",
@@ -464,10 +506,17 @@ class SparkrouteEngine(GatewaySupervisor):
         self.state_dir.mkdir(parents=True, exist_ok=True)
         _restrict_dir_permissions(self.state_dir)
 
+        from .protocol import ProtocolError
+
         try:
+            self._prepare_daemon(binary)
+            if not self.daemon_transport and self.sctx is not None:
+                from .cutover import select_transport
+
+                select_transport("bridge", sctx=self.sctx)
             self._prepare_live_tokens()
             cmd = self.build_command(binary)
-        except (CredentialError, GatewayReleaseError) as exc:
+        except (CredentialError, GatewayReleaseError, SparkrouteConfigError, ProtocolError, RuntimeError, ValueError) as exc:
             logger.error("%s", exc)
             return 1
 

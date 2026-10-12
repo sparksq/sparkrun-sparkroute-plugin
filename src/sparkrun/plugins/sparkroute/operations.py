@@ -118,7 +118,19 @@ def execute(request: Request) -> dict[str, Any]:
         operation = start_operation(request, sctx=sctx)
         return wait_operation(operation, request.timeout_seconds, sctx=sctx) if request.wait else operation
     if request.operation == "stop":
-        return _stop(fingerprint, request.cluster_id, sctx, cluster_candidates=binding.cluster_candidates)
+        from dataclasses import asdict
+        from .bridge_workloads import invoke
+        from .cutover import require_transport
+        from .jobs import _connect, _path
+
+        with _connect(_path(sctx)) as db:
+            require_transport(db, "bridge")
+            return invoke(
+                "workloads.stop",
+                {"binding": {**asdict(binding), "recipe_revision": fingerprint}, "cluster_id": request.cluster_id},
+                sctx,
+                legacy=True,
+            )
     raise ProtocolError("unsupported_operation", "unsupported bridge operation")
 
 

@@ -80,6 +80,15 @@ def register(v) -> None:
     when invoked — so a stock install that never touches this gateway pays
     almost nothing for it being here.
     """
+    # This integration now shares recovery logic even in bridge fallback mode.
+    # Fail before partial registration when an old 0.4 alpha pin lacks it.
+    from sparkrun import api as host_api
+
+    if not hasattr(host_api, "workloads"):
+        raise RuntimeError(
+            "SparkRoute requires a Sparkrun host with the shared workload/daemon APIs; "
+            "use the coordinated migration build and update compat/host.toml before release"
+        )
     from sparkrun.core.cli_registry import register_cli_command
     from sparkrun.plugins import register_recipe_item
     from sparkrun.proxy.gateway import register_gateway
@@ -88,6 +97,9 @@ def register(v) -> None:
     register_recipe_item("sparkroute", RECIPE_HANDLER, owner=__name__, affects_fingerprint=False)
     register_gateway(GATEWAY_NAME, feature_flag=FEATURE_FLAG, loader=_load_engine)
     register_cli_command(_load_bridge_command, name=BRIDGE_COMMAND)
+    from .daemon import register as register_daemon
+
+    register_daemon()
     logger.debug("Registered the %s gateway and its bridge command", GATEWAY_NAME)
 
 
