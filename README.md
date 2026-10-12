@@ -6,21 +6,32 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # SparkRoute plugin for sparkrun
 
-This repository provides sparkrun's SparkRoute integration, designed to be
-vendored by a compatible sparkrun distribution as `sparkrun.plugins.sparkroute`.
-It supervises the gateway and connects model discovery and workload lifecycle
-controls to sparkrun.
+This repository provides sparkrun's SparkRoute plugin. It supervises the gateway
+and connects model discovery and workload lifecycle controls to sparkrun.
+Install it with sparkrun's plugin manager, or vendor it in a compatible
+distribution as `sparkrun.plugins.sparkroute`.
 
-**Host compatibility:** plugin v0.2.1 requires
-Sparkrun `>=0.4,<0.5`. Use a compatible 0.4 checkout with `SPARKRUN_CHECKOUT`
-until those host changes are released. `compat/host.toml` pins the host source
-used by CI. Installing this wheel alone does not enable the gateway; use the
-development assembly below or a distribution that vendors this plugin.
+**Host compatibility:** requires Sparkrun 0.4.0 or later in the 0.4.x line
+(`>=0.4,<0.5`).
 
-`sparkrun proxy start --foreground` (what `sparkrun proxy systemd` runs)
-reconciles the gateway at start. On hosts that provide
-`GatewaySupervisor.supervise_foreground` it exits 0 on a requested stop and
-non-zero on a crash; older 0.4 hosts wait on the gateway process directly.
+## Install and enable SparkRoute
+
+Install the plugin with Sparkrun 0.4.0's plugin manager:
+
+```sh
+sparkrun plugins add https://github.com/sparksq/sparkrun-sparkroute-plugin --trust
+```
+
+Only one gateway can be active: using SparkRoute requires disabling
+`gateway.litellm` and enabling `gateway.sparkroute`. If LiteLLM is already
+running, stop it with `sparkrun proxy stop` before switching gateway features.
+
+```sh
+sparkrun setup features disable gateway.litellm
+sparkrun setup features enable gateway.sparkroute
+sparkrun proxy start --gateway sparkroute --host 127.0.0.1
+sparkrun proxy ui
+```
 
 The integration starts SparkRoute with `-sparkrun` to enable the recipe catalog
 and lifecycle controller. Standalone SparkRoute leaves this integration disabled
@@ -28,23 +39,21 @@ unless that flag is supplied.
 
 The integration supervises a local SparkRoute OSS gateway and contributes the
 hidden `sparkrun gateway-bridge` JSON command used for discovery, recipe
-resolution, on-demand launch, and ownership-checked shutdown. Enable both
-directions with `gateway.sparkroute`; selecting the gateway is a separate step.
+resolution, on-demand launch, and ownership-checked shutdown.
 
-```sh
-sparkrun setup features enable gateway.sparkroute
-sparkrun proxy start --gateway sparkroute --host 127.0.0.1
-sparkrun proxy ui
-```
+GitHub releases also provide source and wheel artifacts for inspection and
+vendoring. There is no package registry publisher. The default gateway is
+SparkRoute v0.0.3, with verified
+archive digests for all six controller platforms. A compatible host downloads
+the gateway when it starts, without requiring GitHub authentication. Adding
+the plugin does not download or start a gateway.
+
+`sparkrun proxy start --foreground` (what `sparkrun proxy systemd` runs)
+reconciles the gateway at start. On hosts that provide
+`GatewaySupervisor.supervise_foreground` it exits 0 on a requested stop and
+non-zero on a crash; older 0.4 hosts wait on the gateway process directly.
 
 ## Development preview
-
-The plugin is currently distributed as source for development and vendoring;
-GitHub releases can provide source and wheel artifacts. There is no package
-registry publisher. The default gateway is SparkRoute v0.0.3, with verified
-archive digests for all six controller platforms. A compatible host downloads
-the gateway when it starts, without requiring GitHub authentication. Installing
-the package does not download or start a gateway.
 
 `dev.sh` prepares a separate development binary. See
 [DEV_PREVIEW.md](DEV_PREVIEW.md) for acquisition and build controls.
@@ -59,15 +68,15 @@ pytest
 
 `dev.sh` copies the 0.4 host to `.dev/sparkrun-with-sparkroute` and links this
 checkout's live plugin source into its in-tree package. `compat/host.toml`
-records the tested host base. The assembly requires the application-profile
-and shared gateway interfaces; it no longer patches older host APIs. An
+records the host source tested by CI. The assembly requires the
+application-profile and shared gateway interfaces; it no longer patches older host APIs. An
 incompatible host fails before replacing the existing development assembly.
 The original checkout is never fetched, switched, or edited.
 
 Without `SPARKRUN_CHECKOUT`, the setup script manages a clone of the official
-sparkrun repository. `SPARKRUN_BRANCH` selects its branch (currently `develop-next` by default). Until the hooks are
-released, select the compatible 0.4 feature branch explicitly with
-`SPARKRUN_CHECKOUT` or `SPARKRUN_BRANCH`.
+sparkrun repository. `SPARKRUN_BRANCH` selects its branch (`develop-next` by
+default). Use `SPARKRUN_CHECKOUT` or `SPARKRUN_BRANCH` to select a compatible
+0.4 development checkout.
 Setup also updates recipe registries and installs local pre-commit hooks, as
 in the ColdSnap plugin workflow.
 
@@ -392,7 +401,7 @@ for the YAML schema, examples, and ownership behavior.
 
 The plugin declares `application_profile_api = 1` in `plugin.toml`. Hosts implementing
 `sparkrun.core.application_profile` (`ApplicationProfile`, API version 1) preserve this declaration in their verified vendor metadata and can
-check compatibility before importing the integration. This branch requires the
+check compatibility before importing the integration. This plugin requires the
 0.4 host API; use a released older plugin with 0.3 hosts.
 
 Gateway implementations use the supported `sparkrun.proxy.supervisor` and
