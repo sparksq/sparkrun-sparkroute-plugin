@@ -4,17 +4,31 @@ SPDX-FileCopyrightText: 2026 Fox Engine Ltd
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
-# Vendored SparkRoute integration
+# SparkRoute plugin integration
 
 Canonical source: https://github.com/sparksq/sparkrun-sparkroute-plugin
 
-Imported as `sparkrun.plugins.sparkroute`; gated by `gateway.sparkroute`.
+Imported as `sparkrun.plugins.sparkroute`. Install and activate with:
+
+```sh
+sparkrun plugins add https://github.com/sparksq/sparkrun-sparkroute-plugin --enable
+sparkrun setup features enable gateway.sparkroute
+sparkrun proxy start --host 127.0.0.1
+```
+
+Plugin enablement permits loading and preserves capability settings. Explicitly
+enabling `gateway.sparkroute` selects SparkRoute for subsequent starts. Other
+gateway plugins may remain enabled. Stop an existing gateway before starting a
+different one; activation never stops or restarts services. Updates preserve the
+selection. `plugins disable sparkroute` preserves the installation and settings.
+Shared `gateway` support is enabled by default; enable it first if disabled.
+
 This package is AGPL-3.0-only with the sparkrun combination permission in
 `LICENSE_EXCEPTION`. Both license notices must accompany redistribution.
 
-sparkrun's packaged `VENDORED.toml` identifies the immutable upstream source
-and content hashes. Develop changes in the canonical repository and update
-the host vendor pin rather than editing this copy.
+Managed installations record source revisions and immutable generations outside
+the Sparkrun Python installation. Distributions that vendor this plugin may use
+`VENDORED.toml` to identify their source snapshot.
 
 ## Recipe defaults
 

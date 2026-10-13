@@ -1085,7 +1085,7 @@ def test_litellm_reports_no_console_rather_than_failing():
     """LiteLLM simply has no admin console — an answer, not an error."""
     from sparkrun.api.proxy import ProxyUnsupported
     from sparkrun.api.proxy import _ops
-    from sparkrun.proxy.engine import ProxyEngine
+    from sparkrun.plugins.litellm.engine import ProxyEngine
 
     assert not hasattr(ProxyEngine, "ui_url")
     with mock.patch.object(_ops, "_running_engine", return_value=ProxyEngine()):

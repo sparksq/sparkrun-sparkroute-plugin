@@ -62,7 +62,6 @@ def isolate_sparkrun_state(tmp_path: Path, monkeypatch):
     import sparkrun.core.config as config
     import sparkrun.core.registry as registry
     import sparkrun.core.recipe_items as recipe_items
-    from sparkrun.core.features import FEATURE_FLAGS, FeatureFlag
     from sparkrun.core.in_tree_plugins import IN_TREE_PLUGIN_FEATURES
 
     try:
@@ -75,11 +74,6 @@ def isolate_sparkrun_state(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(registry, "BOOTSTRAP_REGISTRY_URLS", [], raising=False)
     monkeypatch.setattr(registry.RegistryManager, "_clone_or_pull", lambda self, entry: False, raising=False)
     monkeypatch.setattr(recipe_items, "_RECIPE_ITEMS", dict(recipe_items._RECIPE_ITEMS))
-    monkeypatch.setitem(
-        FEATURE_FLAGS,
-        "gateway.sparkroute",
-        FeatureFlag(name="gateway.sparkroute", description="Standalone SparkRoute plugin tests", default=False),
-    )
     monkeypatch.setitem(IN_TREE_PLUGIN_FEATURES, "sparkroute", "gateway.sparkroute")
     if reset_declared_registries is not None:
         reset_declared_registries()

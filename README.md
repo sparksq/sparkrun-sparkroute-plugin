@@ -22,16 +22,30 @@ Install the plugin with Sparkrun 0.4.0's plugin manager:
 sparkrun plugins add https://github.com/sparksq/sparkrun-sparkroute-plugin --trust
 ```
 
-Only one gateway can be active: using SparkRoute requires disabling
-`gateway.litellm` and enabling `gateway.sparkroute`. If LiteLLM is already
-running, stop it with `sparkrun proxy stop` before switching gateway features.
+Plugin loading and gateway activation are separate. Installation preserves
+capability settings. Explicitly enabling `gateway.sparkroute` selects SparkRoute
+for subsequent starts; LiteLLM can remain enabled.
 
 ```sh
-sparkrun setup features disable gateway.litellm
+sparkrun plugins enable sparkroute
 sparkrun setup features enable gateway.sparkroute
-sparkrun proxy start --gateway sparkroute --host 127.0.0.1
+sparkrun proxy start --host 127.0.0.1
 sparkrun proxy ui
 ```
+
+If another gateway is already running, stop it with `sparkrun proxy stop` before
+starting SparkRoute. Enabling a feature does not stop or restart running services.
+To select LiteLLM again, run `sparkrun setup features enable gateway.litellm`.
+Updates preserve the selected gateway and all plugin/feature settings.
+
+`sparkrun plugins disable sparkroute` prevents plugin loading without removing
+its installation or settings. Re-enabling the plugin restores those settings;
+it does not change gateway selection. A feature cannot activate a disabled plugin.
+The default-on `gateway` feature controls shared gateway support. If it was
+disabled, enable it with `sparkrun setup features enable gateway` first.
+
+These lifecycle controls require the coordinated Sparkrun 0.4.0 build that
+exports `PLUGIN_LIFECYCLE_API_VERSION = 1`.
 
 The integration starts SparkRoute with `-sparkrun` to enable the recipe catalog
 and lifecycle controller. Standalone SparkRoute leaves this integration disabled

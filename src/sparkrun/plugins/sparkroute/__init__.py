@@ -5,8 +5,7 @@
 
 """LLM Gateway integration — sparkrun-supervised Go gateway, both directions.
 
-An in-tree plugin (see :mod:`sparkrun.plugins`) because it is only coherent as
-one unit while fitting no single extension point. It contributes:
+An external plugin (see :mod:`sparkrun.plugins`) contributing:
 
 * **Outbound** — :class:`~.engine.SparkrouteEngine`, registered as the
   SparkRoute gateway. Sparkrun acquires the pinned release binary
@@ -19,16 +18,12 @@ one unit while fitting no single extension point. It contributes:
   :mod:`.bridge`, :mod:`.operations`) the gateway drives as a child process to
   discover, activate and stop workloads.
 
-Both halves are gated by one flag, ``gateway.sparkroute``. The host distribution
-owns its channel defaults, and the flag gates loading: with it off this module is
-never imported, so there is no gateway registration and no bridge command. One
-flag rather than a separate presence flag because the two are not
-independently useful: no point loading the plugin if the gateway will not be
-used, and none in enabling the gateway without the plugin.
+Plugin loading is controlled by ``sparkrun plugins enable/disable sparkroute``.
+The ``gateway.sparkroute`` capability controls gateway and bridge registration;
+the default-on ``gateway`` feature controls shared gateway support. Explicitly
+enabling the capability also selects SparkRoute for subsequent proxy starts.
+Disabling the plugin preserves settings and generic process status/stop recovery.
 
-If disabled while a gateway is running, sparkrun's generic supervisor retains
-process-level status and stop. Configuration and bridge operations require the
-integration to remain enabled.
 """
 
 from __future__ import annotations
@@ -38,6 +33,13 @@ __version__ = "0.2.1"
 import logging
 
 SPARKRUN_PLUGIN_API_VERSION = 1
+SPARKRUN_PLUGIN_MANIFEST = {
+    "api": 1,
+    "features": {
+        "gateway.sparkroute": {"description": "SparkRoute gateway and workload bridge", "default": False},
+    },
+    "hooks": {"feature.enable": "sparkrun.plugins.sparkroute.lifecycle:enable_feature"},
+}
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +74,7 @@ def _load_bridge_command():
 
 
 def register(v) -> None:
-    """Plugin entry point, invoked by the in-tree plugin loader.
+    """Plugin entry point, invoked by the shared plugin loader.
 
     Registers the recipe item, gateway implementation and hidden bridge command.
     These registrations are cheap and import nothing heavy — the engine arrives
@@ -80,6 +82,10 @@ def register(v) -> None:
     when invoked — so a stock install that never touches this gateway pays
     almost nothing for it being here.
     """
+    from sparkrun.core.features import feature_gate_enabled
+
+    if not feature_gate_enabled("gateway", v) or not feature_gate_enabled(FEATURE_FLAG, v):
+        return
     # This integration now shares recovery logic even in bridge fallback mode.
     # Fail before partial registration when an old 0.4 alpha pin lacks it.
     from sparkrun import api as host_api

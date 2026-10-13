@@ -30,13 +30,16 @@ SETTINGS = {"capabilities": ["vision"], "request_profiles": PROFILES}
 @pytest.fixture(autouse=True)
 def recipe_item_registered(monkeypatch):
     from sparkrun.core import recipe_items
-    from sparkrun.plugins.sparkroute import register
+    from sparkrun.core.external_plugins import _register_plugin_module
+    from sparkrun.plugins import sparkroute
+
+    monkeypatch.setenv("SPARKRUN_FEATURE_GATEWAY_SPARKROUTE", "1")
 
     monkeypatch.setattr(recipe_items, "_RECIPE_ITEMS", dict(recipe_items._RECIPE_ITEMS))
     from sparkrun.core.plugin_identity import PluginIdentity, plugin_registration
 
     with plugin_registration(PluginIdentity("sparkroute", "sparkrun.plugins.sparkroute", ("in-tree", "sparkrun.plugins.sparkroute", None))):
-        register(None)
+        _register_plugin_module(sparkroute, None)
 
 
 def binding(revision="one", profiles=None, model="coding"):
