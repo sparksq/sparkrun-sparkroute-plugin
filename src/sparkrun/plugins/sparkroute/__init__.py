@@ -95,9 +95,9 @@ def register(v) -> None:
             "SparkRoute requires a Sparkrun host with the shared workload/daemon APIs; "
             "use the coordinated migration build and update compat/host.toml before release"
         )
-    from sparkrun.core.cli_registry import register_cli_command
+    from sparkrun.plugins import register_cli_command
     from sparkrun.plugins import register_recipe_item
-    from sparkrun.proxy.gateway import register_gateway
+    from sparkrun.plugins import register_gateway
     from .recipe_config import RECIPE_HANDLER
 
     register_recipe_item("sparkroute", RECIPE_HANDLER, owner=__name__, affects_fingerprint=False)

@@ -5,7 +5,7 @@
 
 """Explicit SparkRoute capability activation, using the shared host policy."""
 
-from sparkrun.plugin_lifecycle import select_gateway
+from sparkrun.plugins import select_gateway
 
 
 def enable_feature(context):

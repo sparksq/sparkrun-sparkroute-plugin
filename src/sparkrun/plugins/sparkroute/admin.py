@@ -23,7 +23,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from sparkrun.proxy.contracts import GatewayOperationError
+from sparkrun.plugins import GatewayOperationError
 
 logger = logging.getLogger(__name__)
 

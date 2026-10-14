@@ -48,8 +48,7 @@ from typing import Any
 
 from sparkrun.proxy import DEFAULT_MASTER_KEY, DEFAULT_PROXY_HOST, DEFAULT_PROXY_PORT
 from sparkrun.proxy._supervisor import _restrict_dir_permissions
-from sparkrun.proxy.contracts import GatewayOperationError, GatewayQueryError, ProxyModel
-from sparkrun.proxy.supervisor import GatewaySupervisor
+from sparkrun.plugins import GatewayOperationError, GatewayQueryError, GatewaySupervisor, ProxyModel
 from sparkrun.proxy.gateway import require_gateway_enabled
 from sparkrun.plugins.sparkroute.admin import AdminClient, AdminError, RevisionConflict
 from sparkrun.plugins.sparkroute.credentials import CredentialError, ReconcilerCredential

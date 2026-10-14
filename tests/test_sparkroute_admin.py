@@ -28,7 +28,7 @@ from sparkrun.plugins.sparkroute import credentials as cred_mod
 from sparkrun.plugins.sparkroute.admin import AdminClient, AdminError, RevisionConflict
 from sparkrun.plugins.sparkroute.credentials import CredentialError, ReconcilerCredential
 
-from sparkrun.proxy.contracts import GatewayOperationError
+from sparkrun.plugins import GatewayOperationError
 
 REV_A = "a" * 64
 REV_B = "b" * 64

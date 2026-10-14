@@ -31,7 +31,7 @@ from sparkrun.plugins.sparkroute import engine as engine_mod
 from sparkrun.plugins.sparkroute.admin import AdminError, RevisionConflict
 from sparkrun.plugins.sparkroute.engine import SparkrouteConfigError, SparkrouteEngine
 
-from sparkrun.proxy.contracts import GatewayQueryError, ProxyModel
+from sparkrun.plugins import GatewayQueryError, ProxyModel
 
 REV_A = "a" * 64
 REV_B = "b" * 64
@@ -679,7 +679,7 @@ def test_unload_matches_registry_reference_and_cached_path(tmp_path, target):
         bindings=[{"recipe": str(recipe_path)}, {"recipe": "@official/qwen", "overrides": {"port": 30001}}, {"recipe": str(other_path)}]
     )
     engine = SparkrouteEngine(state_dir=tmp_path, proxy_config=config)
-    from sparkrun.api._context import resolve_sctx
+    from sparkrun.api import resolve_sctx
 
     sctx = resolve_sctx(None)
     engine.sctx = sctx
