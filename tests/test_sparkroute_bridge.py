@@ -262,13 +262,14 @@ def test_stop_refuses_a_workload_the_bridge_did_not_launch():
 
 def test_stop_without_a_cluster_id_only_stops_owned_workloads():
     jobs = [_job("human"), _job("mine", owner=operations.GATEWAY_OWNER)]
+    sctx = object()
     with (
         mock.patch.object(operations.api, "list_jobs", return_value=jobs),
         mock.patch.object(operations.api, "stop", return_value=SimpleNamespace(success=True)) as stop,
     ):
-        result = operations._stop("abc123abc123", "", object())
+        result = operations._stop("abc123abc123", "", sctx)
     assert result["cluster_ids"] == ["mine"]
-    assert [c.kwargs["cluster_id"] for c in stop.call_args_list] == ["mine"]
+    stop.assert_called_once_with(workload_id="mine", sctx=sctx)
 
 
 # ---------------------------------------------------------------------------

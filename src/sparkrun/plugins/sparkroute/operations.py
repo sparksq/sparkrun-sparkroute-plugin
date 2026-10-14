@@ -337,7 +337,7 @@ def _stop(fingerprint: str, cluster_id: str, sctx, *, cluster_candidates: tuple[
     stopped: list[str] = []
     for candidate in owned_ids:
         try:
-            result = api.stop(cluster_id=candidate, sctx=sctx)
+            result = api.stop(workload_id=candidate, sctx=sctx)
         except api.JobNotFound:
             continue
         except api.HostsUnreachable as exc:
