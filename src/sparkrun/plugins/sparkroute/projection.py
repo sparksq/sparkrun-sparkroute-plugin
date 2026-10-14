@@ -433,11 +433,10 @@ def _runtime_protocols(recipe: Any, *, sctx: Any = None) -> list[str]:
     only costs a translation, whereas failing the whole reconcile over an
     unloadable plugin would take down configuration for every other binding.
     """
-    from sparkrun.api._resolve import resolve_runtime
+    import sparkrun.api as api
 
     try:
-        runtime = resolve_runtime(recipe, sctx=sctx)
-        protocols = list(runtime.native_protocols(recipe) or ())
+        protocols = list(api.recipe_protocols(recipe, sctx=sctx).protocols)
     except Exception:
         logger.debug("Could not resolve native protocols for %s", getattr(recipe, "qualified_name", recipe), exc_info=True)
         return [DEFAULT_PROTOCOL]
@@ -445,10 +444,10 @@ def _runtime_protocols(recipe: Any, *, sctx: Any = None) -> list[str]:
 
 
 def _runtime_capabilities(recipe: Any, *, sctx: Any = None) -> list[str]:
-    from sparkrun.api._resolve import resolve_runtime
+    import sparkrun.api as api
 
     try:
-        return list(resolve_runtime(recipe, sctx=sctx).native_capabilities(recipe))
+        return list(api.recipe_protocols(recipe, sctx=sctx).capabilities)
     except Exception:
         logger.debug("Could not resolve native APIs for %s", getattr(recipe, "qualified_name", recipe), exc_info=True)
         return []

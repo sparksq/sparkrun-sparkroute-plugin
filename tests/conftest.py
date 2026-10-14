@@ -116,3 +116,24 @@ def managed_plugin(tmp_path, monkeypatch):
     finally:
         sparkrun.plugins.__path__[:] = original
     return ctx
+
+
+@pytest.fixture
+def runtime_protocols(monkeypatch):
+    """Answer ``api.recipe_protocols`` from a given runtime plugin's declarations.
+
+    The host's runtime registry is not initialized under these tests, so a test
+    that checks what a real runtime declares binds it through the public seam.
+    """
+    import sparkrun.api as api
+
+    def bind(runtime):
+        def recipe_protocols(recipe, *, sctx=None):
+            return api.RecipeProtocols(
+                protocols=tuple(runtime.native_protocols(recipe) or ()) or ("openai",),
+                capabilities=tuple(runtime.native_capabilities(recipe) or ()),
+            )
+
+        monkeypatch.setattr(api, "recipe_protocols", recipe_protocols)
+
+    return bind

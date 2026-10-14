@@ -10,11 +10,11 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from sparkrun.core import application_profile
+from sparkrun.application import child_environment as profile_child_environment
 
 
 def child_environment(config_path: Path | None = None) -> dict[str, str]:
     """Same-controller children inherit process settings and profile/config identity."""
     environment = dict(os.environ)
-    environment.update(application_profile.child_environment(config_path=config_path))
+    environment.update(profile_child_environment(config_path=config_path))
     return environment

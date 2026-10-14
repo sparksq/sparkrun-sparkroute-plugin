@@ -53,12 +53,10 @@ def binding(revision="one", profiles=None, model="coding"):
     )
 
 
-def test_recipe_defaults_project_and_do_not_change_deployment_or_binding_identity():
+def test_recipe_defaults_project_and_do_not_change_deployment_or_binding_identity(runtime_protocols):
     recipe = Recipe({"model": "test/model", "runtime": "vllm", "container": "nightly:latest", "defaults": {"served_model_name": "coding"}})
-    with (
-        patch("sparkrun.api.resolve_catalog_recipe", return_value=(recipe, {})) as resolve,
-        patch("sparkrun.api._resolve.resolve_runtime", return_value=VllmDistributedRuntime()),
-    ):
+    runtime_protocols(VllmDistributedRuntime())
+    with patch("sparkrun.api.resolve_catalog_recipe", return_value=(recipe, {})) as resolve:
         before = build_sparkrun_set(resolve_bindings([{"recipe": "@test/coder"}]))
         recipe = Recipe({**recipe.to_dict(), "sparkroute": deepcopy(SETTINGS)})
         resolve.return_value = (recipe, {})
@@ -233,7 +231,7 @@ def test_plugin_owns_recipe_schema_and_saved_state_without_core_attributes():
     assert "sparkroute" not in state
     assert state["plugin_items"]["sparkroute"] == SETTINGS
     unregister_recipe_item("sparkroute", owner="sparkrun.plugins.sparkroute")
-    restored = Recipe._deserialize_yaml(Recipe._deserialize(state)._serialize_yaml())
+    restored = Recipe._deserialize_yaml(Recipe.from_state(state)._serialize_yaml())
     assert restored.to_dict()["sparkroute"] == SETTINGS
     assert derive_recipe_fingerprint(restored) == fingerprint
 

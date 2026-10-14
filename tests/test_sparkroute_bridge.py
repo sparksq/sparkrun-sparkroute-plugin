@@ -92,17 +92,25 @@ def _recipe_state() -> dict:
     ).__getstate__()
 
 
-def _endpoint(cluster_id: str):
-    return SimpleNamespace(
-        cluster_id=cluster_id,
-        actual_models=["served"],
-        served_model_name="served",
-        model="model",
-        host="10.0.0.2",
-        port=8000,
-        recipe_name="@local/qwen",
-        runtime="vllm",
-    )
+def _endpoint(workload_id: str):
+    """One row of ``api.discovery_snapshot()["endpoints"]``."""
+    return {
+        "workload_id": workload_id,
+        "cluster_name": None,
+        "actual_models": ["served"],
+        "served_model_name": "served",
+        "model": "model",
+        "host": "10.0.0.2",
+        "port": 8000,
+        "healthy": True,
+        "max_model_len": None,
+        "recipe_name": "@local/qwen",
+        "runtime": "vllm",
+    }
+
+
+def _snapshot(*endpoints):
+    return {"endpoints": list(endpoints)}
 
 
 # ---------------------------------------------------------------------------
@@ -219,10 +227,10 @@ def test_mutating_operations_are_gated_but_introspection_is_not(monkeypatch):
 def test_discovery_never_exports_api_key():
     job = SimpleNamespace(workload_id="c", metadata={"recipe_fingerprint": "abc123abc123", "api_key": "secret"})
     endpoint = _endpoint("c")
-    endpoint.api_key = "secret"
+    endpoint["api_key"] = "secret"
     with (
         mock.patch.object(operations.api, "list_jobs", return_value=[job]),
-        mock.patch.object(operations, "discover_endpoints", return_value=[endpoint]),
+        mock.patch.object(operations.api, "discovery_snapshot", return_value=_snapshot(endpoint)),
     ):
         result = operations._discover(object(), fingerprint="abc123abc123")
     assert result[0]["served_models"] == ["served"]
@@ -231,10 +239,10 @@ def test_discovery_never_exports_api_key():
 
 def test_discovery_requires_live_served_model_ids():
     endpoint = _endpoint("cluster")
-    endpoint.actual_models = []
+    endpoint["actual_models"] = []
     with (
         mock.patch.object(operations.api, "list_jobs", return_value=[_job("cluster")]),
-        mock.patch.object(operations, "discover_endpoints", return_value=[endpoint]),
+        mock.patch.object(operations.api, "discovery_snapshot", return_value=_snapshot(endpoint)),
     ):
         assert operations._discover(object(), fingerprint="abc123abc123") == []
 
@@ -243,12 +251,13 @@ def test_discovery_scopes_the_health_probe_to_matching_jobs():
     jobs = [_job("owned", owner=operations.GATEWAY_OWNER), _job("other", fingerprint="ffffffffffff")]
     with (
         mock.patch.object(operations.api, "list_jobs", return_value=jobs),
-        mock.patch.object(operations, "discover_endpoints", return_value=[_endpoint("owned")]) as discover,
+        mock.patch.object(operations.api, "discovery_snapshot", return_value=_snapshot(_endpoint("owned"))) as discover,
     ):
         result = operations._discover(object(), fingerprint="abc123abc123")
     # The non-matching job must never reach the probe, not merely be dropped
     # from the results afterwards.
-    assert discover.call_args.kwargs["cluster_ids"] == {"owned"}
+    assert discover.call_args.kwargs["workload_ids"] == {"owned"}
+    assert discover.call_args.kwargs["metadata_only"] is True
     assert [e["workload_id"] for e in result] == ["owned"]
     assert result[0][operations._OWNED_KEY] is True
 
@@ -426,7 +435,7 @@ def test_ensure_ready_background_request_returns_operation_without_launching():
 def test_endpoint_projection_matches_the_gateway_struct():
     with (
         mock.patch.object(operations.api, "list_jobs", return_value=[_job("cluster", owner=operations.GATEWAY_OWNER)]),
-        mock.patch.object(operations, "discover_endpoints", return_value=[_endpoint("cluster")]),
+        mock.patch.object(operations.api, "discovery_snapshot", return_value=_snapshot(_endpoint("cluster"))),
     ):
         internal = operations._discover(object(), fingerprint="abc123abc123")
 
@@ -456,7 +465,7 @@ def test_endpoint_projection_carries_optional_model_metadata():
     job = _job("cluster", owner=operations.GATEWAY_OWNER, recipe_state=_recipe_state())
     with (
         mock.patch.object(operations.api, "list_jobs", return_value=[job]),
-        mock.patch.object(operations, "discover_endpoints", return_value=[_endpoint("cluster")]),
+        mock.patch.object(operations.api, "discovery_snapshot", return_value=_snapshot(_endpoint("cluster"))),
     ):
         projected = operations._project(operations._discover(object(), fingerprint="abc123abc123")[0])
 
@@ -494,7 +503,7 @@ def test_endpoint_without_a_recipe_state_omits_model_metadata():
     unknown" rather than "not reported"."""
     with (
         mock.patch.object(operations.api, "list_jobs", return_value=[_job("cluster")]),
-        mock.patch.object(operations, "discover_endpoints", return_value=[_endpoint("cluster")]),
+        mock.patch.object(operations.api, "discovery_snapshot", return_value=_snapshot(_endpoint("cluster"))),
     ):
         projected = operations._project(operations._discover(object(), fingerprint="abc123abc123")[0])
     assert "model_metadata" not in projected
@@ -505,7 +514,7 @@ def test_unreadable_recipe_state_does_not_break_discovery():
     job = _job("cluster", recipe_state={"not": "a recipe"})
     with (
         mock.patch.object(operations.api, "list_jobs", return_value=[job]),
-        mock.patch.object(operations, "discover_endpoints", return_value=[_endpoint("cluster")]),
+        mock.patch.object(operations.api, "discovery_snapshot", return_value=_snapshot(_endpoint("cluster"))),
     ):
         endpoints = operations._discover(object(), fingerprint="abc123abc123")
     assert len(endpoints) == 1
@@ -549,7 +558,7 @@ def test_cluster_name_is_exposed_for_endpoint_operations(operation):
     with (
         mock.patch.object(operations.api, "default_sctx", return_value=object()),
         mock.patch.object(operations.api, "list_jobs", return_value=[job]),
-        mock.patch.object(operations, "discover_endpoints", return_value=[_endpoint("opaque-job")]),
+        mock.patch.object(operations.api, "discovery_snapshot", return_value=_snapshot(_endpoint("opaque-job"))),
         mock.patch.object(operations, "_resolve_binding", return_value=(object(), "abc123abc123", {})),
     ):
         request = Request(request_id="r", operation=operation, binding=binding)
@@ -566,7 +575,7 @@ def test_missing_or_invalid_cluster_names_do_not_block_discovery(cluster):
     job.metadata["cluster"] = cluster
     with (
         mock.patch.object(operations.api, "list_jobs", return_value=[job]),
-        mock.patch.object(operations, "discover_endpoints", return_value=[_endpoint("opaque-job")]),
+        mock.patch.object(operations.api, "discovery_snapshot", return_value=_snapshot(_endpoint("opaque-job"))),
     ):
         endpoint = operations._project(operations._discover(object())[0])
     assert "cluster_name" not in endpoint

@@ -20,7 +20,6 @@ from sparkrun.plugins.sparkroute.protocol import (
     ProtocolError,
     Request,
 )
-from sparkrun.proxy.discovery import discover_endpoints
 
 logger = logging.getLogger(__name__)
 
@@ -379,7 +378,7 @@ def _recipe_of(job) -> Any:
     try:
         from sparkrun.plugins import Recipe
 
-        return Recipe._deserialize(state)
+        return Recipe.from_state(state)
     except Exception:  # noqa: BLE001 - advisory metadata only
         logger.debug("Could not rehydrate the recipe for endpoint metadata", exc_info=True)
         return None
@@ -400,7 +399,9 @@ def _discover(sctx, *, fingerprint: str = "", workload_id: str = "", cluster_can
         # Push the filter into discovery rather than applying it to the
         # results: each candidate costs an HTTP probe, and the readiness poll
         # calls this repeatedly while watching a single known job.
-        discovered = discover_endpoints(check_health=True, cluster_ids=allowed_ids, sctx=sctx)
+        # Metadata-only: candidates are already scoped by recorded cluster
+        # above, so discovery must not narrow them to the default cluster.
+        snapshot = api.discovery_snapshot(metadata_only=True, workload_ids=allowed_ids, sctx=sctx)
     except Exception as exc:
         # Do not render raw exceptions into the *response*: discovery may use
         # credentials retained in owner-only job metadata, so the structured
@@ -410,10 +411,11 @@ def _discover(sctx, *, fingerprint: str = "", workload_id: str = "", cluster_can
         raise ProtocolError("discovery_failed", "Sparkrun endpoint discovery failed", retryable=True) from exc
 
     result: list[dict[str, Any]] = []
-    for endpoint in discovered:
-        if allowed_ids is not None and endpoint.cluster_id not in allowed_ids:
+    for endpoint in snapshot["endpoints"]:
+        endpoint_id = endpoint["workload_id"]
+        if allowed_ids is not None and endpoint_id not in allowed_ids:
             continue
-        job = jobs.get(endpoint.cluster_id)
+        job = jobs.get(endpoint_id)
         metadata = job.metadata if job is not None else {}
         from .workload_plugins import describe_job
 
@@ -423,29 +425,29 @@ def _discover(sctx, *, fingerprint: str = "", workload_id: str = "", cluster_can
         # The gateway treats this as an authorization input, so use only the
         # model IDs returned by the live /v1/models probe. Job metadata is not
         # authoritative enough to assert what a reused host:port serves.
-        served_models = sorted({str(model) for model in endpoint.actual_models if model})
+        served_models = sorted({str(model) for model in endpoint.get("actual_models") or () if model})
         if not served_models:
             continue
         # Advisory public model card.  Omitted entirely when nothing is known,
         # because the Go struct marks it `omitempty` and an empty object would
         # claim "reported, all unknown" rather than "not reported".
         model_metadata = build_model_metadata(_recipe_of(job), served_models)
-        context = getattr(endpoint, "max_model_len", None)
+        context = endpoint.get("max_model_len")
         if isinstance(context, int) and not isinstance(context, bool) and context > 0:
             for model in served_models:
                 model_metadata.setdefault(model, {})["context"] = context
         result.append(
             {
                 "state": "ready",
-                "workload_id": endpoint.cluster_id,
-                "job_id": endpoint.cluster_id,
-                "host": endpoint.host,
-                "port": endpoint.port,
+                "workload_id": endpoint_id,
+                "job_id": endpoint_id,
+                "host": endpoint["host"],
+                "port": endpoint["port"],
                 "protocol": "openai",
                 "served_models": served_models,
-                "recipe": endpoint.recipe_name,
+                "recipe": endpoint.get("recipe_name", ""),
                 "recipe_revision": str((metadata or {}).get("recipe_fingerprint") or ""),
-                "runtime": endpoint.runtime,
+                "runtime": endpoint["runtime"],
                 # Internal only — stripped by _project() before this reaches a
                 # response.  The gateway decodes results with
                 # DisallowUnknownFields, so every projected key is part of the
@@ -454,7 +456,7 @@ def _discover(sctx, *, fingerprint: str = "", workload_id: str = "", cluster_can
                 "owned": str((metadata or {}).get("owner") or "") == GATEWAY_OWNER,
             }
         )
-        cluster_name = (metadata or {}).get("cluster") or getattr(endpoint, "cluster_name", None)
+        cluster_name = (metadata or {}).get("cluster") or endpoint.get("cluster_name")
         if (
             isinstance(cluster_name, str)
             and cluster_name.strip()
@@ -535,11 +537,6 @@ def _recover_launch(placement, binding, recipe, fingerprint, sctx, deadline):
     """Reconcile a recorded placement before allowing a retry to launch again."""
     if not placement:
         return None
-    from sparkrun.api._resolve import resolve_runtime
-    from sparkrun.core.launcher import wait_for_endpoint_ready
-    from sparkrun.orchestration.primitives import build_ssh_kwargs
-    import threading
-
     snapshot = api.status(placement["hosts"], cluster=placement["cluster"], sctx=sctx)
     if snapshot.errors or len(snapshot.hosts) != len(placement["hosts"]):
         raise ProtocolError(
@@ -554,29 +551,13 @@ def _recover_launch(placement, binding, recipe, fingerprint, sctx, deadline):
             "recovery_requires_operator",
             "A previous launch is still running and its post-launch steps may be incomplete; inspect it with sparkrun status",
         )
-    for job in api.list_jobs(sctx=sctx):
-        if job.workload_id == placement["workload_id"] and job.metadata.get("port"):
-            placement = {**placement, "port": int(job.metadata["port"])}
-            break
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise ProtocolError("readiness_timeout", "Activation exceeded its readiness budget", retryable=True)
-    cancel = threading.Event()
-    timer = threading.Timer(remaining, cancel.set)
-    timer.daemon = True
-    timer.start()
-    try:
-        wait_for_endpoint_ready(
-            runtime=resolve_runtime(recipe, sctx=sctx),
-            cluster_id=placement["workload_id"],
-            host_list=placement["hosts"],
-            is_solo=placement["solo"],
-            port=placement["port"],
-            ssh_kwargs=build_ssh_kwargs(sctx.config),
-            cancel=cancel,
-        )
-    finally:
-        timer.cancel()
+    # Hosts, port and runtime come from the job's own metadata; the budget
+    # bounds the wait and the operation's cancel aborts it.  The verdict is
+    # not trusted on its own: discovery below decides whether it serves.
+    api.wait_ready(workload_id=placement["workload_id"], timeout=remaining, sctx=sctx)
     endpoints = _discover(
         sctx, fingerprint=fingerprint, workload_id=placement["workload_id"], cluster_candidates=binding.cluster_candidates
     )

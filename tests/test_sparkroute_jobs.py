@@ -107,9 +107,7 @@ def test_recovery_waits_for_existing_job_without_relaunching():
         mock.patch.object(operations.api, "list_jobs", return_value=[]),
         mock.patch.object(api, "status", return_value=snapshot),
         mock.patch.object(api, "run") as run,
-        mock.patch("sparkrun.api._resolve.resolve_runtime", return_value=object()),
-        mock.patch("sparkrun.core.launcher.wait_for_endpoint_ready") as ready,
-        mock.patch("sparkrun.orchestration.primitives.build_ssh_kwargs", return_value={}),
+        mock.patch.object(api, "wait_ready") as ready,
         mock.patch.object(operations, "_discover", return_value=[{"port": 8001}]),
     ):
         result = operations._recover_launch(
@@ -121,7 +119,10 @@ def test_recovery_waits_for_existing_job_without_relaunching():
             operations.time.monotonic() + 30,
         )
     assert result["endpoint"]["port"] == 8001
-    assert ready.call_args.kwargs["port"] == 8001
+    # The recorded workload is waited on (sparkrun reads its hosts and port
+    # from job metadata), bounded by what is left of the activation budget.
+    assert ready.call_args.kwargs["workload_id"] == "job"
+    assert 0 < ready.call_args.kwargs["timeout"] <= 30
     run.assert_not_called()
 
 
@@ -138,10 +139,11 @@ def test_discovery_and_stop_use_authoritative_named_cluster():
     ]
     with (
         mock.patch.object(api, "list_jobs", return_value=entries),
-        mock.patch.object(operations, "discover_endpoints", return_value=[]) as discover,
+        mock.patch.object(api, "discovery_snapshot", return_value={"endpoints": []}) as discover,
     ):
         operations._discover(object(), fingerprint="fp", cluster_candidates=("lab",))
-        assert discover.call_args.kwargs["cluster_ids"] == {"a"}
+        assert discover.call_args.kwargs["workload_ids"] == {"a"}
+        assert discover.call_args.kwargs["metadata_only"] is True
         with pytest.raises(ProtocolError, match="does not belong"):
             operations._stop("fp", "b", object(), cluster_candidates=("lab",))
 

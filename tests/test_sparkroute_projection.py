@@ -359,16 +359,16 @@ def test_capability_policy_survives_alongside_protocols():
 
 
 def test_runtime_hook_supplies_protocols_and_a_binding_may_override():
+    from sparkrun.api import RecipeProtocols
     from sparkrun.core.recipe import Recipe
     from sparkrun.plugins.sparkroute.projection import resolve_bindings
 
     recipe = Recipe({"recipe_version": "2", "model": "m", "runtime": "vllm", "container": "c", "defaults": {"port": 8000}})
-    runtime = mock.Mock()
-    runtime.native_protocols.return_value = ["openai", "anthropic"]
+    declared = RecipeProtocols(protocols=("openai", "anthropic"), capabilities=())
 
     with (
         mock.patch("sparkrun.api.resolve_catalog_recipe", return_value=(recipe, {})),
-        mock.patch("sparkrun.api._resolve.resolve_runtime", return_value=runtime),
+        mock.patch("sparkrun.api.recipe_protocols", return_value=declared),
     ):
         from_runtime = resolve_bindings([{"recipe": "@local/x"}])
         overridden = resolve_bindings([{"recipe": "@local/x", "native_protocols": ["openai"]}])
@@ -378,7 +378,7 @@ def test_runtime_hook_supplies_protocols_and_a_binding_may_override():
 
 
 @pytest.mark.parametrize("apis", [None, ["chat_completions"], ["messages"]])
-def test_nightly_vllm_runtime_declarations_reach_existing_loaded_bindings(apis):
+def test_nightly_vllm_runtime_declarations_reach_existing_loaded_bindings(apis, runtime_protocols):
     from sparkrun.core.recipe import Recipe
     from sparkrun.runtimes.vllm_distributed import VllmDistributedRuntime
     from sparkrun.plugins.sparkroute.projection import resolve_bindings
@@ -393,10 +393,8 @@ def test_nightly_vllm_runtime_declarations_reach_existing_loaded_bindings(apis):
         }
     )
     # proxy load persists recipe/cluster, not a snapshot of runtime API defaults.
-    with (
-        mock.patch("sparkrun.api.resolve_catalog_recipe", return_value=(recipe, {})),
-        mock.patch("sparkrun.api._resolve.resolve_runtime", return_value=VllmDistributedRuntime()),
-    ):
+    runtime_protocols(VllmDistributedRuntime())
+    with mock.patch("sparkrun.api.resolve_catalog_recipe", return_value=(recipe, {})):
         bindings = resolve_bindings([{"recipe": "@official/deepseek", "cluster": "sparks25"}])
     deployment = build_sparkrun_set(bindings)["deployments"][0]
     assert deployment["native_protocols"] == (
@@ -415,7 +413,7 @@ def test_unresolvable_runtime_degrades_to_openai_rather_than_failing():
     recipe = Recipe({"recipe_version": "2", "model": "m", "runtime": "vllm", "container": "c", "defaults": {"port": 8000}})
     with (
         mock.patch("sparkrun.api.resolve_catalog_recipe", return_value=(recipe, {})),
-        mock.patch("sparkrun.api._resolve.resolve_runtime", side_effect=RuntimeError("no plugin")),
+        mock.patch("sparkrun.api.recipe_protocols", side_effect=RuntimeError("no plugin")),
     ):
         assert resolve_bindings([{"recipe": "@local/x"}])[0].native_protocols == ["openai"]
 
