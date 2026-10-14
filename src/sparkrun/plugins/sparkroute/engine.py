@@ -792,7 +792,7 @@ class SparkrouteEngine(GatewaySupervisor):
             return {}, {}
         jobs: dict[str, Any] = {}
         try:
-            jobs = {job.cluster_id: job.metadata or {} for job in api.list_jobs(sctx=self.sctx)}
+            jobs = {job.workload_id: job.metadata or {} for job in api.list_jobs(sctx=self.sctx)}
         except Exception:
             logger.debug("Job display metadata unavailable; using discovery fields", exc_info=True)
         names: dict[str, set[str]] = {}
@@ -902,7 +902,7 @@ class SparkrouteEngine(GatewaySupervisor):
         jobs = {}
         if endpoints:
             try:
-                jobs = {job.cluster_id: job for job in api.list_jobs(sctx=self.sctx)}
+                jobs = {job.workload_id: job for job in api.list_jobs(sctx=self.sctx)}
             except Exception:
                 logger.debug("Job model metadata unavailable", exc_info=True)
         previous_snapshot = self._read_discovered_apis()

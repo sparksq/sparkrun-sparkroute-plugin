@@ -17,6 +17,9 @@ from sparkrun.plugins.sparkroute.protocol import ProtocolError
 
 
 def legacy(ctx, *, state="failed", revision="rev", pid=None):
+    # Simulates a placement recorded by a pre-rename bridge worker, which wrote
+    # ``cluster_id``; sparkrun's Receipts journal decodes it to ``workload_id``
+    # on read (see sparkrun.api.workloads._placement).
     placement = {"cluster_id": "workload", "cluster": "lab", "hosts": ["host"]}
     with jobs._connect(jobs._path(ctx)) as db:
         db.execute(
@@ -58,7 +61,10 @@ def test_import_retains_uncertainty_and_never_overwrites_reconciliation():
     cutover.select_transport("daemon", sctx=ctx)
     journal = Receipts(ctx)
     (row,) = journal.placements("rev", "sparkroute")
-    assert row["phase"] == "hooks_started" and row["placement"] == placement
+    # Receipts decodes the legacy ``cluster_id`` key to ``workload_id`` on read.
+    decoded = {**placement, "workload_id": placement["cluster_id"]}
+    del decoded["cluster_id"]
+    assert row["phase"] == "hooks_started" and row["placement"] == decoded
     assert journal.state("workload") == "sleeping"
     journal.save(row["id"], "rev", "sparkroute", placement, "stopped")
     journal.state("workload", "stopped")

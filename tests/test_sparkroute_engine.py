@@ -1140,9 +1140,9 @@ def test_discovered_titles_follow_healthy_clusters_and_survive_cli_restart(tmp_p
     config = _MutableProxyConfig(bindings=[])
     engine = SparkrouteEngine(state_dir=tmp_path, proxy_config=config)
     jobs = [
-        SimpleNamespace(cluster_id="opaque-a", metadata={"cluster": "spark-a"}),
-        SimpleNamespace(cluster_id="opaque-b", metadata={"cluster": "spark-b"}),
-        SimpleNamespace(cluster_id="stale-job", metadata={"cluster": "old-cluster", "model": "served-model"}),
+        SimpleNamespace(workload_id="opaque-a", metadata={"cluster": "spark-a"}),
+        SimpleNamespace(workload_id="opaque-b", metadata={"cluster": "spark-b"}),
+        SimpleNamespace(workload_id="stale-job", metadata={"cluster": "old-cluster", "model": "served-model"}),
     ]
     endpoints = [
         SimpleNamespace(cluster_id="opaque-a", healthy=True, actual_models=["served-model"]),
@@ -1185,11 +1185,13 @@ def test_bound_titles_use_live_job_fingerprints_even_without_configured_clusters
     engine = SparkrouteEngine(state_dir=tmp_path, proxy_config=config)
     bound = ProjectedBinding(recipe="@official/deepseek", recipe_revision="5813420d8cac", model="deepseek", virtual_model="deepseek")
     jobs = [
-        SimpleNamespace(cluster_id="opaque-job", metadata={"cluster": "real-cluster", "recipe_fingerprint": bound.recipe_revision}),
-        SimpleNamespace(cluster_id="same-model-other-recipe", metadata={"cluster": "other-cluster", "recipe_fingerprint": "other-recipe"}),
-        SimpleNamespace(cluster_id="stale", metadata={"cluster": "stale-cluster", "recipe_fingerprint": bound.recipe_revision}),
+        SimpleNamespace(workload_id="opaque-job", metadata={"cluster": "real-cluster", "recipe_fingerprint": bound.recipe_revision}),
+        SimpleNamespace(workload_id="same-model-other-recipe", metadata={"cluster": "other-cluster", "recipe_fingerprint": "other-recipe"}),
+        SimpleNamespace(workload_id="stale", metadata={"cluster": "stale-cluster", "recipe_fingerprint": bound.recipe_revision}),
     ]
-    endpoints = [SimpleNamespace(cluster_id=job.cluster_id, healthy=job.cluster_id != "stale", actual_models=["deepseek"]) for job in jobs]
+    endpoints = [
+        SimpleNamespace(cluster_id=job.workload_id, healthy=job.workload_id != "stale", actual_models=["deepseek"]) for job in jobs
+    ]
     with mock.patch.object(engine_mod, "resolve_bindings", return_value=[bound]), mock.patch("sparkrun.api.list_jobs", return_value=jobs):
         before = engine.build_desired_set()["deployments"][0]
         engine.prepare_config(endpoints, {}, write=False)
@@ -1234,7 +1236,7 @@ def test_discovery_persists_saved_model_size_and_observed_context(engine):
             "defaults": {"max_model_len": 65536},
         }
     )
-    job = SimpleNamespace(cluster_id="fixture-job", metadata={"recipe_state": recipe.__getstate__()})
+    job = SimpleNamespace(workload_id="fixture-job", metadata={"recipe_state": recipe.__getstate__()})
     endpoint = SimpleNamespace(
         cluster_id="fixture-job", healthy=True, actual_models=["coding"], native_protocols=["openai"], max_model_len=8192
     )
@@ -1253,7 +1255,7 @@ def test_bound_metadata_does_not_borrow_from_a_different_recipe(engine):
     endpoints = []
     for revision, size, context in [("matching", 8, 8192), ("other", 70, 4096)]:
         recipe = Recipe({"model": "fixture", "runtime": "vllm", "container": "fixture:latest", "metadata": {"model_params": size * 1e9}})
-        jobs.append(SimpleNamespace(cluster_id=revision, metadata={"recipe_state": recipe.__getstate__(), "recipe_fingerprint": revision}))
+        jobs.append(SimpleNamespace(workload_id=revision, metadata={"recipe_state": recipe.__getstate__(), "recipe_fingerprint": revision}))
         endpoints.append(SimpleNamespace(cluster_id=revision, healthy=True, actual_models=["coding"], max_model_len=context))
     with mock.patch("sparkrun.api.list_jobs", return_value=jobs):
         engine._persist_discovered_apis(endpoints)

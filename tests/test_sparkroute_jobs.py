@@ -60,7 +60,7 @@ def test_dead_worker_reuses_operation_and_preserves_placement():
     sctx = api.default_sctx()
     with mock.patch.object(jobs.subprocess, "Popen", return_value=SimpleNamespace(pid=12345)):
         first = jobs.start_operation(activation(), sctx=sctx)
-    placement = {"cluster_id": "job", "cluster": "lab", "hosts": ["host"], "port": 8001, "solo": True}
+    placement = {"workload_id": "job", "cluster": "lab", "hosts": ["host"], "port": 8001, "solo": True}
     with jobs._connect(jobs._path(sctx)) as db:
         db.execute("UPDATE operations SET placement=?", (json.dumps(placement),))
     with (
@@ -72,7 +72,7 @@ def test_dead_worker_reuses_operation_and_preserves_placement():
         spawn.assert_not_called()
         recovered = jobs.start_operation(activation(), sctx=sctx)
     assert recovered["operation_id"] == first["operation_id"]
-    assert recovered["cluster_id"] == "job" and "hosts" not in recovered
+    assert recovered["workload_id"] == "job" and "hosts" not in recovered
     spawn.assert_called_once()
     with jobs._connect(jobs._path(sctx)) as db:
         assert json.loads(db.execute("SELECT placement FROM operations").fetchone()[0]) == placement
@@ -101,7 +101,7 @@ def test_worker_runs_without_original_request_and_persists_refresh_results(monke
 
 
 def test_recovery_waits_for_existing_job_without_relaunching():
-    placement = {"cluster_id": "job", "cluster": "lab", "hosts": ["host"], "port": 8001, "solo": True}
+    placement = {"workload_id": "job", "cluster": "lab", "hosts": ["host"], "port": 8001, "solo": True}
     snapshot = SimpleNamespace(errors={}, hosts=[SimpleNamespace(workloads=[SimpleNamespace(cluster_id="job")])])
     with (
         mock.patch.object(operations.api, "list_jobs", return_value=[]),
@@ -133,7 +133,7 @@ def test_unreachable_recovery_cannot_launch_a_duplicate():
 
 def test_discovery_and_stop_use_authoritative_named_cluster():
     entries = [
-        SimpleNamespace(cluster_id=name, metadata={"recipe_fingerprint": "fp", "cluster": cluster, "owner": "sparkroute"})
+        SimpleNamespace(workload_id=name, metadata={"recipe_fingerprint": "fp", "cluster": cluster, "owner": "sparkroute"})
         for name, cluster in [("a", "lab"), ("b", "other"), ("old", None)]
     ]
     with (
@@ -148,7 +148,7 @@ def test_discovery_and_stop_use_authoritative_named_cluster():
 
 def test_retry_recovers_persisted_job_after_successful_worker_is_gone():
     job = SimpleNamespace(
-        cluster_id="recorded-job", hosts=["host"], metadata={"recipe_fingerprint": "fingerprint", "cluster": "lab", "port": 8123}
+        workload_id="recorded-job", hosts=["host"], metadata={"recipe_fingerprint": "fingerprint", "cluster": "lab", "port": 8123}
     )
     with (
         mock.patch.object(operations, "_discover", return_value=[]),
@@ -161,7 +161,7 @@ def test_retry_recovers_persisted_job_after_successful_worker_is_gone():
             "state": "ready"
         }
     assert recover.call_args.args[0]["port"] == 8123
-    assert recover.call_args.args[0]["cluster_id"] == "recorded-job"
+    assert recover.call_args.args[0]["workload_id"] == "recorded-job"
     run.assert_not_called()
 
 

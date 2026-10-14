@@ -16,7 +16,7 @@ from sparkrun.plugins.sparkroute.protocol import Binding, ProtocolError, Request
 def fixture(monkeypatch, *, owned=True, used=True):
     sctx = api.default_sctx()
     job = SimpleNamespace(
-        cluster_id="job",
+        workload_id="job",
         metadata={
             "cluster": "lab",
             "recipe_fingerprint": "revision",
@@ -31,11 +31,11 @@ def fixture(monkeypatch, *, owned=True, used=True):
     calls = []
 
     def control(action, selected, **kwargs):
-        calls.append((action, selected.cluster_id))
-        return {"state": "sleeping" if action == "sleep" else "running", "cluster_id": selected.cluster_id}
+        calls.append((action, selected.workload_id))
+        return {"state": "sleeping" if action == "sleep" else "running", "workload_id": selected.workload_id}
 
     monkeypatch.setitem(sys.modules, "sparkrun.plugins.coldsnap.api", SimpleNamespace(control_job=control))
-    request = Request("test", "sleep", binding=Binding("recipe", "revision", ("lab",)), cluster_id="job")
+    request = Request("test", "sleep", binding=Binding("recipe", "revision", ("lab",)), workload_id="job")
     return sctx, job, request, calls
 
 
@@ -81,4 +81,4 @@ def test_durable_sleep_and_activation_cannot_run_concurrently(monkeypatch):
     ):
         jobs.start_operation(request, sctx=sctx)
         with pytest.raises(ProtocolError, match="already running"):
-            jobs.start_operation(replace(request, operation="ensure_ready", cluster_id=""), sctx=sctx)
+            jobs.start_operation(replace(request, operation="ensure_ready", workload_id=""), sctx=sctx)

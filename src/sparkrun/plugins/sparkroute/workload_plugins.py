@@ -39,13 +39,13 @@ def _state_path(sctx):
 def _stored_state(job, sctx) -> str:
     from sparkrun.api.workloads import Receipts
 
-    return Receipts(sctx).state(job.cluster_id) or str((job.metadata or {}).get("runtime_info", {}).get("lifecycle_state") or "running")
+    return Receipts(sctx).state(job.workload_id) or str((job.metadata or {}).get("runtime_info", {}).get("lifecycle_state") or "running")
 
 
 def _set_state(job, state, sctx):
     from sparkrun.api.workloads import Receipts
 
-    Receipts(sctx).state(job.cluster_id, state)
+    Receipts(sctx).state(job.workload_id, state)
 
 
 def describe_job(job, *, sctx, availability=None) -> dict:
@@ -59,7 +59,7 @@ def describe_job(job, *, sctx, availability=None) -> dict:
     if actions and owned:
         actions += ["sleep", "wake"]
     return {
-        "job_id": job.cluster_id,
+        "job_id": job.workload_id,
         "cluster_name": str(metadata.get("cluster") or ""),
         "recipe_revision": str(metadata.get("recipe_fingerprint") or ""),
         "owned": owned,
@@ -82,7 +82,7 @@ def inspect_workloads(*, sctx) -> dict:
 def control_workload(request, *, sctx) -> dict:
     import sparkrun.api as api
 
-    job = next((j for j in api.list_jobs(sctx=sctx) if j.cluster_id == request.cluster_id), None)
+    job = next((j for j in api.list_jobs(sctx=sctx) if j.workload_id == request.workload_id), None)
     if job is None or request.binding is None:
         raise ProtocolError("workload_not_found", "The configured workload is no longer available")
     info = describe_job(job, sctx=sctx)
@@ -125,7 +125,7 @@ def wake_existing(binding, *, sctx):
             continue
         if (metadata.get("runtime_info") or {}).get("execution_strategy") != "coldsnap":
             continue
-        request = Request(request_id="wake-existing", operation="workload_status", binding=binding, cluster_id=job.cluster_id)
+        request = Request(request_id="wake-existing", operation="workload_status", binding=binding, workload_id=job.workload_id)
         result = control_workload(request, sctx=sctx)
         if result["state"] in {"sleeping", "warm"}:
             from dataclasses import replace

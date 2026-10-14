@@ -22,7 +22,7 @@ def _binding(value):
 
 def _workload(row):
     return {
-        "job_id": row["cluster_id"],
+        "job_id": row["workload_id"],
         "cluster_name": row["cluster_name"] or "",
         "recipe_revision": row["recipe_revision"],
         "owned": row["owned"],
@@ -37,18 +37,19 @@ def _project(endpoint, sctx, observed_at, *, owner=OWNER):
     from .metadata import build_model_metadata
     from .operations import _recipe_of
 
-    job = next((j for j in api.list_jobs(sctx=sctx) if j.cluster_id == endpoint["cluster_id"]), None)
+    job = next((j for j in api.list_jobs(sctx=sctx) if j.workload_id == endpoint["workload_id"]), None)
     metadata = build_model_metadata(_recipe_of(job), endpoint["actual_models"])
     if endpoint.get("max_model_len"):
         for model in endpoint["actual_models"]:
             metadata.setdefault(model, {})["context"] = endpoint["max_model_len"]
     info = next(
-        (row for row in api.workloads.inventory(owner=owner, sctx=sctx)["workloads"] if row["cluster_id"] == endpoint["cluster_id"]), None
+        (row for row in api.workloads.inventory(owner=owner, sctx=sctx)["workloads"] if row["workload_id"] == endpoint["workload_id"]),
+        None,
     )
     return {
         "state": "ready",
-        "cluster_id": endpoint["cluster_id"],
-        "job_id": endpoint["cluster_id"],
+        "workload_id": endpoint["workload_id"],
+        "job_id": endpoint["workload_id"],
         "cluster_name": endpoint.get("cluster_name") or "",
         "host": endpoint["host"],
         "port": endpoint["port"],
@@ -96,7 +97,7 @@ def _invoke(name, arguments, sctx, prompt=None, *, legacy=False):
         result = workloads.endpoints(
             recipe_revision=revision,
             cluster_candidates=binding.cluster_candidates if binding else (),
-            cluster_id=arguments.get("cluster_id", ""),
+            workload_id=arguments.get("workload_id", ""),
             sctx=sctx,
         )
         endpoints = [_project(ep, sctx, result["observed_at"]) for ep in result["endpoints"][:256]]
@@ -117,13 +118,13 @@ def _invoke(name, arguments, sctx, prompt=None, *, legacy=False):
         }
     if name == "workloads.reconcile":
         return workloads.reconcile(
-            binding, arguments["cluster_id"], owner=OWNER, acknowledge_effects=arguments.get("acknowledge_effects", False), sctx=sctx
+            binding, arguments["workload_id"], owner=OWNER, acknowledge_effects=arguments.get("acknowledge_effects", False), sctx=sctx
         )
     if name == "workloads.stop":
-        return workloads.stop(binding, arguments["cluster_id"], owner=OWNER, sctx=sctx)
+        return workloads.stop(binding, arguments["workload_id"], owner=OWNER, sctx=sctx)
     action = name.rsplit(".", 1)[-1]
-    result = workloads.control(binding, arguments["cluster_id"], action, owner=OWNER, sctx=sctx)
-    row = next(row for row in workloads.inventory(owner=OWNER, sctx=sctx)["workloads"] if row["cluster_id"] == result["cluster_id"])
+    result = workloads.control(binding, arguments["workload_id"], action, owner=OWNER, sctx=sctx)
+    row = next(row for row in workloads.inventory(owner=OWNER, sctx=sctx)["workloads"] if row["workload_id"] == result["workload_id"])
     return {**_workload(row), "state": result["state"]}
 
 

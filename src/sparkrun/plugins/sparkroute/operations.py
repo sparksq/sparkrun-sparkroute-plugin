@@ -106,7 +106,7 @@ def execute(request: Request) -> dict[str, Any]:
         return {"endpoints": [_project(e) for e in _discover(sctx, fingerprint=fingerprint, cluster_candidates=binding.cluster_candidates)]}
     if request.operation == "status":
         endpoint = _adoptable(
-            _discover(sctx, fingerprint=fingerprint, cluster_id=request.cluster_id, cluster_candidates=binding.cluster_candidates)
+            _discover(sctx, fingerprint=fingerprint, workload_id=request.workload_id, cluster_candidates=binding.cluster_candidates)
         )
         return {
             "state": "ready" if endpoint else "offline",
@@ -127,7 +127,7 @@ def execute(request: Request) -> dict[str, Any]:
             require_transport(db, "bridge")
             return invoke(
                 "workloads.stop",
-                {"binding": {**asdict(binding), "recipe_revision": fingerprint}, "cluster_id": request.cluster_id},
+                {"binding": {**asdict(binding), "recipe_revision": fingerprint}, "workload_id": request.workload_id},
                 sctx,
                 legacy=True,
             )
@@ -193,11 +193,11 @@ def _ensure_ready(request: Request, binding: Binding, recipe, fingerprint: str, 
             continue
         if not job.hosts or not cluster or not metadata.get("port"):
             continue
-        if any(p["cluster_id"] == job.cluster_id for p in placements):
+        if any(p["workload_id"] == job.workload_id for p in placements):
             continue
         placements.append(
             {
-                "cluster_id": job.cluster_id,
+                "workload_id": job.workload_id,
                 "cluster": cluster,
                 "hosts": list(job.hosts),
                 "port": int(metadata["port"]),
@@ -229,7 +229,7 @@ def _ensure_ready(request: Request, binding: Binding, recipe, fingerprint: str, 
             progress(
                 "launching workload",
                 {
-                    "cluster_id": plan.cluster_id,
+                    "workload_id": plan.workload_id,
                     "cluster": plan.cluster.name,
                     "hosts": list(plan.host_list),
                     "port": plan.recipe.defaults.get("port", 8000),
@@ -264,7 +264,7 @@ def _ensure_ready(request: Request, binding: Binding, recipe, fingerprint: str, 
     launched_fingerprint = run_result.recipe_fingerprint or fingerprint
     if launched_fingerprint != fingerprint:
         logger.warning("launched job recorded a different recipe fingerprint than the binding resolved")
-    cluster_id = run_result.cluster_id
+    workload_id = run_result.workload_id
 
     from sparkrun.core.launcher import post_launch_lifecycle, wait_for_serve_ready
     from sparkrun.orchestration.primitives import build_ssh_kwargs
@@ -281,7 +281,7 @@ def _ensure_ready(request: Request, binding: Binding, recipe, fingerprint: str, 
     progress(
         "waiting for server readiness",
         {
-            "cluster_id": cluster_id,
+            "workload_id": workload_id,
             "cluster": plan.cluster.name,
             "hosts": list(run_result.host_list),
             "port": run_result.serve_port,
@@ -298,7 +298,7 @@ def _ensure_ready(request: Request, binding: Binding, recipe, fingerprint: str, 
         timer.cancel()
     if not readiness.ready:
         raise ProtocolError("readiness_failed", "server startup readiness did not complete (%s)" % readiness.reason, retryable=True)
-    endpoints = _discover(sctx, fingerprint=launched_fingerprint, cluster_id=cluster_id, cluster_candidates=binding.cluster_candidates)
+    endpoints = _discover(sctx, fingerprint=launched_fingerprint, workload_id=workload_id, cluster_candidates=binding.cluster_candidates)
     if not endpoints:
         raise ProtocolError("endpoint_unavailable", "ready workload did not publish the expected endpoint", retryable=True)
     return {"state": "ready", "endpoint": _project(endpoints[0]), "adopted": False}
@@ -321,19 +321,19 @@ def _adoptable(endpoints: list[dict[str, Any]]) -> dict[str, Any] | None:
     return endpoints[0]
 
 
-def _stop(fingerprint: str, cluster_id: str, sctx, *, cluster_candidates: tuple[str, ...] = ()) -> dict[str, Any]:
+def _stop(fingerprint: str, workload_id: str, sctx, *, cluster_candidates: tuple[str, ...] = ()) -> dict[str, Any]:
     # A fingerprint says "same serve configuration", not "mine".  Two operators
     # — or an operator and this bridge — running the same recipe produce the
     # same digest, so stopping on the digest alone would let the gateway tear
     # down a workload a human launched and is using.  Teardown therefore
     # requires the ownership tag this bridge writes at launch.
     matching_ids, owned_ids = _matching_job_ids(sctx, fingerprint, cluster_candidates=cluster_candidates)
-    if cluster_id:
-        if cluster_id not in matching_ids:
+    if workload_id:
+        if workload_id not in matching_ids:
             raise ProtocolError("job_not_found", "cluster does not belong to the configured recipe revision")
-        if cluster_id not in owned_ids:
+        if workload_id not in owned_ids:
             raise ProtocolError("job_not_owned", "cluster was not launched by the gateway bridge")
-        owned_ids = [cluster_id]
+        owned_ids = [workload_id]
     stopped: list[str] = []
     for candidate in owned_ids:
         try:
@@ -347,7 +347,7 @@ def _stop(fingerprint: str, cluster_id: str, sctx, *, cluster_candidates: tuple[
         if not result.success:
             raise ProtocolError("stop_failed", "Sparkrun could not confirm workload teardown", retryable=True)
         stopped.append(candidate)
-    return {"state": "offline", "cluster_ids": stopped}
+    return {"state": "offline", "workload_ids": stopped}
 
 
 def _matching_job_ids(sctx, fingerprint: str, *, cluster_candidates: tuple[str, ...] = ()) -> tuple[list[str], list[str]]:
@@ -360,9 +360,9 @@ def _matching_job_ids(sctx, fingerprint: str, *, cluster_candidates: tuple[str, 
             continue
         if str(metadata.get("recipe_fingerprint") or "") != fingerprint:
             continue
-        matching.append(job.cluster_id)
+        matching.append(job.workload_id)
         if str(metadata.get("owner") or "") == GATEWAY_OWNER:
-            owned.append(job.cluster_id)
+            owned.append(job.workload_id)
     return matching, owned
 
 
@@ -389,16 +389,16 @@ def _recipe_of(job) -> Any:
         return None
 
 
-def _discover(sctx, *, fingerprint: str = "", cluster_id: str = "", cluster_candidates: tuple[str, ...] = ()) -> list[dict[str, Any]]:
-    jobs = {job.cluster_id: job for job in api.list_jobs(sctx=sctx)}
+def _discover(sctx, *, fingerprint: str = "", workload_id: str = "", cluster_candidates: tuple[str, ...] = ()) -> list[dict[str, Any]]:
+    jobs = {job.workload_id: job for job in api.list_jobs(sctx=sctx)}
     allowed_ids: set[str] | None = None
     if fingerprint:
         allowed_ids = {job_id for job_id, job in jobs.items() if str((job.metadata or {}).get("recipe_fingerprint") or "") == fingerprint}
     if cluster_candidates:
         scoped = {job_id for job_id, job in jobs.items() if (job.metadata or {}).get("cluster") in cluster_candidates}
         allowed_ids = scoped if allowed_ids is None else allowed_ids & scoped
-    if cluster_id:
-        allowed_ids = {cluster_id} if allowed_ids is None else allowed_ids & {cluster_id}
+    if workload_id:
+        allowed_ids = {workload_id} if allowed_ids is None else allowed_ids & {workload_id}
 
     try:
         # Push the filter into discovery rather than applying it to the
@@ -441,7 +441,7 @@ def _discover(sctx, *, fingerprint: str = "", cluster_id: str = "", cluster_cand
         result.append(
             {
                 "state": "ready",
-                "cluster_id": endpoint.cluster_id,
+                "workload_id": endpoint.cluster_id,
                 "job_id": endpoint.cluster_id,
                 "host": endpoint.host,
                 "port": endpoint.port,
@@ -472,7 +472,7 @@ def _discover(sctx, *, fingerprint: str = "", cluster_id: str = "", cluster_cand
             result[-1]["model_metadata"] = model_metadata
         if len(result) >= MAX_DISCOVERED_ENDPOINTS:
             break
-    result.sort(key=lambda value: (value["cluster_id"], value["host"], value["port"]))
+    result.sort(key=lambda value: (value["workload_id"], value["host"], value["port"]))
     return result
 
 
@@ -549,7 +549,7 @@ def _recover_launch(placement, binding, recipe, fingerprint, sctx, deadline):
         raise ProtocolError(
             "recovery_unavailable", "Cannot confirm previous launch status; check the selected cluster before retrying", retryable=True
         )
-    running = any(w.cluster_id == placement["cluster_id"] for host in snapshot.hosts for w in host.workloads)
+    running = any(w.cluster_id == placement["workload_id"] for host in snapshot.hosts for w in host.workloads)
     if not running:
         return None
     # Post-launch hooks may have been interrupted. Do not silently repeat them.
@@ -559,7 +559,7 @@ def _recover_launch(placement, binding, recipe, fingerprint, sctx, deadline):
             "A previous launch is still running and its post-launch steps may be incomplete; inspect it with sparkrun status",
         )
     for job in api.list_jobs(sctx=sctx):
-        if job.cluster_id == placement["cluster_id"] and job.metadata.get("port"):
+        if job.workload_id == placement["workload_id"] and job.metadata.get("port"):
             placement = {**placement, "port": int(job.metadata["port"])}
             break
     remaining = deadline - time.monotonic()
@@ -572,7 +572,7 @@ def _recover_launch(placement, binding, recipe, fingerprint, sctx, deadline):
     try:
         wait_for_endpoint_ready(
             runtime=resolve_runtime(recipe, sctx=sctx),
-            cluster_id=placement["cluster_id"],
+            cluster_id=placement["workload_id"],
             host_list=placement["hosts"],
             is_solo=placement["solo"],
             port=placement["port"],
@@ -581,7 +581,9 @@ def _recover_launch(placement, binding, recipe, fingerprint, sctx, deadline):
         )
     finally:
         timer.cancel()
-    endpoints = _discover(sctx, fingerprint=fingerprint, cluster_id=placement["cluster_id"], cluster_candidates=binding.cluster_candidates)
+    endpoints = _discover(
+        sctx, fingerprint=fingerprint, workload_id=placement["workload_id"], cluster_candidates=binding.cluster_candidates
+    )
     if not endpoints:
         raise ProtocolError("readiness_failed", "Previous launch is still running but is not serving the expected model", retryable=True)
     return {"state": "ready", "endpoint": _project(endpoints[0]), "adopted": True}

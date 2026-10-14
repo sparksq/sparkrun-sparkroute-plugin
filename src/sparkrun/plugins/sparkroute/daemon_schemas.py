@@ -13,7 +13,7 @@ A = {"type": "array", "items": S}
 ENDPOINT = object_schema(
     {
         "state": {"type": "string", "enum": ["ready"]},
-        "cluster_id": S,
+        "workload_id": S,
         "job_id": S,
         "cluster_name": S,
         "host": S,
@@ -29,7 +29,7 @@ ENDPOINT = object_schema(
         "model_metadata": {"type": "object", "additionalProperties": {"type": "object"}},
         "observed_at": {"type": "number", "minimum": 0.001},
     },
-    ["state", "cluster_id", "job_id", "host", "port", "protocol", "served_models", "recipe_revision", "owned", "observed_at"],
+    ["state", "workload_id", "job_id", "host", "port", "protocol", "served_models", "recipe_revision", "owned", "observed_at"],
 )
 RESULTS = {
     "endpoints.metadata": object_schema(

@@ -68,13 +68,13 @@ def _binding():
     }
 
 
-def _job(cluster_id: str, *, owner: str | None = None, fingerprint: str = "abc123abc123", recipe_state: dict | None = None):
+def _job(workload_id: str, *, owner: str | None = None, fingerprint: str = "abc123abc123", recipe_state: dict | None = None):
     metadata = {"recipe_fingerprint": fingerprint}
     if owner is not None:
         metadata["owner"] = owner
     if recipe_state is not None:
         metadata["recipe_state"] = recipe_state
-    return SimpleNamespace(cluster_id=cluster_id, metadata=metadata)
+    return SimpleNamespace(workload_id=workload_id, metadata=metadata)
 
 
 def _recipe_state() -> dict:
@@ -154,9 +154,9 @@ def test_stdio_returns_structured_operation_error():
     }
 
 
-def test_cluster_id_must_be_a_safe_identifier():
+def test_workload_id_must_be_a_safe_identifier():
     with pytest.raises(ProtocolError) as exc_info:
-        parse_request(_request("status", binding=_binding(), cluster_id="cluster id; rm -rf /"))
+        parse_request(_request("status", binding=_binding(), workload_id="cluster id; rm -rf /"))
     assert exc_info.value.code == "invalid_request"
 
 
@@ -217,7 +217,7 @@ def test_mutating_operations_are_gated_but_introspection_is_not(monkeypatch):
 
 
 def test_discovery_never_exports_api_key():
-    job = SimpleNamespace(cluster_id="c", metadata={"recipe_fingerprint": "abc123abc123", "api_key": "secret"})
+    job = SimpleNamespace(workload_id="c", metadata={"recipe_fingerprint": "abc123abc123", "api_key": "secret"})
     endpoint = _endpoint("c")
     endpoint.api_key = "secret"
     with (
@@ -249,7 +249,7 @@ def test_discovery_scopes_the_health_probe_to_matching_jobs():
     # The non-matching job must never reach the probe, not merely be dropped
     # from the results afterwards.
     assert discover.call_args.kwargs["cluster_ids"] == {"owned"}
-    assert [e["cluster_id"] for e in result] == ["owned"]
+    assert [e["workload_id"] for e in result] == ["owned"]
     assert result[0][operations._OWNED_KEY] is True
 
 
@@ -260,7 +260,7 @@ def test_stop_refuses_a_workload_the_bridge_did_not_launch():
     assert exc_info.value.code == "job_not_owned"
 
 
-def test_stop_without_a_cluster_id_only_stops_owned_workloads():
+def test_stop_without_a_workload_id_only_stops_owned_workloads():
     jobs = [_job("human"), _job("mine", owner=operations.GATEWAY_OWNER)]
     sctx = object()
     with (
@@ -268,7 +268,7 @@ def test_stop_without_a_cluster_id_only_stops_owned_workloads():
         mock.patch.object(operations.api, "stop", return_value=SimpleNamespace(success=True)) as stop,
     ):
         result = operations._stop("abc123abc123", "", sctx)
-    assert result["cluster_ids"] == ["mine"]
+    assert result["workload_ids"] == ["mine"]
     stop.assert_called_once_with(workload_id="mine", sctx=sctx)
 
 
@@ -291,7 +291,7 @@ def test_global_discovery_does_not_resolve_a_binding():
 
 def test_ensure_ready_adopts_matching_endpoint_without_launch():
     request = Request(request_id="r", operation="ensure_ready", binding=Binding(recipe="@local/qwen"))
-    endpoint = {"cluster_id": "cluster"}
+    endpoint = {"workload_id": "cluster"}
     with (
         mock.patch.object(operations, "_resolve_binding", return_value=(object(), "abc123abc123", {})),
         mock.patch.object(operations.api, "default_sctx", return_value=object()),
@@ -305,8 +305,8 @@ def test_ensure_ready_adopts_matching_endpoint_without_launch():
 
 def test_ensure_ready_prefers_adopting_a_workload_it_owns():
     request = Request(request_id="r", operation="ensure_ready", binding=Binding(recipe="@local/qwen"))
-    foreign = {"cluster_id": "human", operations._OWNED_KEY: False}
-    mine = {"cluster_id": "mine", operations._OWNED_KEY: True}
+    foreign = {"workload_id": "human", operations._OWNED_KEY: False}
+    mine = {"workload_id": "mine", operations._OWNED_KEY: True}
     with (
         mock.patch.object(operations, "_resolve_binding", return_value=(object(), "abc123abc123", {})),
         mock.patch.object(operations.api, "default_sctx", return_value=object()),
@@ -314,7 +314,7 @@ def test_ensure_ready_prefers_adopting_a_workload_it_owns():
         mock.patch.object(operations.api, "run") as run,
     ):
         result = _run_worker_activation(request)
-    assert result == {"state": "ready", "endpoint": {"cluster_id": "mine"}, "adopted": True}
+    assert result == {"state": "ready", "endpoint": {"workload_id": "mine"}, "adopted": True}
     run.assert_not_called()
 
 
@@ -323,11 +323,17 @@ def test_ensure_ready_uses_shared_plan_run_and_readiness():
         request_id="r", operation="ensure_ready", binding=Binding(recipe="@local/qwen", cluster_candidates=("spark-a",)), timeout_seconds=30
     )
     recipe = SimpleNamespace(post_exec=[], post_commands=[], defaults={"port": 8000})
-    plan = SimpleNamespace(cluster_id="new", cluster=SimpleNamespace(name="spark-a"), host_list=["host"], recipe=recipe, is_solo=True)
+    plan = SimpleNamespace(workload_id="new", cluster=SimpleNamespace(name="spark-a"), host_list=["host"], recipe=recipe, is_solo=True)
     run_result = SimpleNamespace(
-        rc=0, cluster_id="new", recipe_fingerprint="abc123abc123", launch_result=object(), host_list=["host"], serve_port=8001, is_solo=True
+        rc=0,
+        workload_id="new",
+        recipe_fingerprint="abc123abc123",
+        launch_result=object(),
+        host_list=["host"],
+        serve_port=8001,
+        is_solo=True,
     )
-    endpoint = {"cluster_id": "new", "host": "127.0.0.1", "port": 8001, operations._OWNED_KEY: True}
+    endpoint = {"workload_id": "new", "host": "127.0.0.1", "port": 8001, operations._OWNED_KEY: True}
     with (
         mock.patch.object(operations.api, "list_jobs", return_value=[]),
         mock.patch.object(operations, "_resolve_binding", return_value=(recipe, "abc123abc123", {"tensor_parallel": 2})),
@@ -346,7 +352,7 @@ def test_ensure_ready_uses_shared_plan_run_and_readiness():
     assert run.call_args.kwargs["plan"] is plan
     assert readiness.call_args.args[0] is run_result.launch_result
     assert "port_timeout_s" not in readiness.call_args.kwargs  # preserve configured readiness policy
-    assert discover.call_args.kwargs == {"fingerprint": "abc123abc123", "cluster_id": "new", "cluster_candidates": ("spark-a",)}
+    assert discover.call_args.kwargs == {"fingerprint": "abc123abc123", "workload_id": "new", "cluster_candidates": ("spark-a",)}
     assert result["endpoint"]["port"] == 8001 and result["adopted"] is False
 
 
@@ -383,7 +389,7 @@ def test_endpoint_projection_matches_the_gateway_struct():
     # sparkrun.Endpoint in pkg/sparkrun/bridge.go
     assert set(operations._project(internal[0])) == {
         "state",
-        "cluster_id",
+        "workload_id",
         "job_id",
         "host",
         "port",
@@ -412,7 +418,7 @@ def test_endpoint_projection_carries_optional_model_metadata():
 
     assert set(projected) == {
         "state",
-        "cluster_id",
+        "workload_id",
         "job_id",
         "host",
         "port",
@@ -467,7 +473,7 @@ def test_ensure_ready_result_matches_the_gateway_struct():
     with (
         mock.patch.object(operations, "_resolve_binding", return_value=(object(), "abc123abc123", {})),
         mock.patch.object(operations.api, "default_sctx", return_value=object()),
-        mock.patch.object(operations, "_discover", return_value=[{"cluster_id": "c", operations._OWNED_KEY: True}]),
+        mock.patch.object(operations, "_discover", return_value=[{"workload_id": "c", operations._OWNED_KEY: True}]),
     ):
         result = _run_worker_activation(request)
     # sparkrun.EnsureResult in pkg/sparkrun/bridge.go
@@ -488,7 +494,7 @@ def test_stop_result_matches_the_gateway_struct():
     ):
         result = operations._stop("abc123abc123", "", object())
     # sparkrun.StopResult in pkg/sparkrun/bridge.go
-    assert set(result) == {"state", "cluster_ids"}
+    assert set(result) == {"state", "workload_ids"}
 
 
 @pytest.mark.parametrize("operation", ["discover", "status", "ensure_ready"])
@@ -505,7 +511,7 @@ def test_cluster_name_is_exposed_for_endpoint_operations(operation):
         request = Request(request_id="r", operation=operation, binding=binding)
         result = _run_worker_activation(request) if operation == "ensure_ready" else operations.execute(request)
     endpoint = result["endpoints"][0] if operation == "discover" else result["endpoint"]
-    assert endpoint["cluster_id"] == endpoint["job_id"] == "opaque-job"
+    assert endpoint["workload_id"] == endpoint["job_id"] == "opaque-job"
     assert endpoint["cluster_name"] == "spark-a"
     assert "_owned" not in endpoint
 
@@ -520,7 +526,7 @@ def test_missing_or_invalid_cluster_names_do_not_block_discovery(cluster):
     ):
         endpoint = operations._project(operations._discover(object())[0])
     assert "cluster_name" not in endpoint
-    assert endpoint["cluster_id"] == "opaque-job"
+    assert endpoint["workload_id"] == "opaque-job"
 
 
 @pytest.mark.parametrize("version", [1, 2, 99])

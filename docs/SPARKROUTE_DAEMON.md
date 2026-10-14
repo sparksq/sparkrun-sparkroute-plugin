@@ -101,7 +101,7 @@ blocked. Inspect the actual workload and hooks, then use the admin operation:
 ```sh
 sparkrun daemon --url http://127.0.0.1:8376 --token-file /private/sparkroute.token \
   call workloads.reconcile --data \
-  '{"recipe":"@registry/recipe","recipe_revision":"EXACT_REVISION","cluster_candidates":["lab"],"cluster_id":"EXACT_WORKLOAD_ID","acknowledge_effects":true}'
+  '{"recipe":"@registry/recipe","recipe_revision":"EXACT_REVISION","cluster_candidates":["lab"],"workload_id":"EXACT_WORKLOAD_ID","acknowledge_effects":true}'
 ```
 
 Reconciliation requires complete placement observations and, for a running

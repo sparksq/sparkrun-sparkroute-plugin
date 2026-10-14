@@ -56,7 +56,7 @@ def _public(row) -> dict:
     value = {"operation_id": row["id"], "state": row["state"], "phase": row["phase"], "updated_at": row["updated"]}
     if row["placement"]:
         placement = json.loads(row["placement"])
-        value["cluster_id"] = placement.get("cluster_id", "")
+        value["workload_id"] = placement.get("workload_id", "")
         value["cluster_name"] = placement.get("cluster", "")
     for key in ("result", "error"):
         if row[key]:
@@ -112,7 +112,7 @@ def start_operation(request: Request, *, sctx) -> dict:
         ).fetchone()
         if row and row["state"] == "running" and _alive(row["pid"]):
             original = json.loads(row["request"])
-            if original["operation"] != request.operation or original.get("cluster_id", "") != request.cluster_id:
+            if original["operation"] != request.operation or original.get("workload_id", "") != request.workload_id:
                 raise ProtocolError(
                     "workload_busy", "A lifecycle operation is already running for this recipe; retry after it finishes", retryable=True
                 )
@@ -257,7 +257,10 @@ def run_worker(config_path: Path, operation_id: str) -> None:
             from .bridge_workloads import invoke
 
             result = invoke(
-                "workloads." + request.operation, {"binding": asdict(request.binding), "cluster_id": request.cluster_id}, sctx, legacy=True
+                "workloads." + request.operation,
+                {"binding": asdict(request.binding), "workload_id": request.workload_id},
+                sctx,
+                legacy=True,
             )
         elif request.operation == "catalog_capacity":
             progress("checking cluster occupancy")

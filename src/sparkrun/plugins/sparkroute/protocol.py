@@ -83,7 +83,7 @@ class Request:
     operation: str
     schema_version: int = PROTOCOL_VERSION
     binding: Binding | None = None
-    cluster_id: str = ""
+    workload_id: str = ""
     timeout_seconds: float = 900.0
     arguments: dict[str, Any] = field(default_factory=dict)
     wait: bool = True
@@ -136,7 +136,7 @@ def parse_request(value: Any) -> Request:
         "request_id",
         "operation",
         "binding",
-        "cluster_id",
+        "workload_id",
         "timeout_seconds",
         "wait",
         "arguments",
@@ -154,13 +154,13 @@ def parse_request(value: Any) -> Request:
     if operation in {"resolve", "ensure_ready", "status", "stop", "sleep", "wake", "workload_status"} and binding is None:
         raise ProtocolError("invalid_request", "operation requires a binding")
 
-    cluster_id = _optional_string(value.get("cluster_id"), "cluster_id", 1024)
+    workload_id = _optional_string(value.get("workload_id"), "workload_id", 1024)
     # Same character class the cluster candidates are held to.  It is only ever
     # compared against known ids rather than interpolated anywhere, but an
     # identifier field on a machine boundary should not be the one place that
     # accepts arbitrary text.
-    if cluster_id and not _SAFE_ID_RE.fullmatch(cluster_id):
-        raise ProtocolError("invalid_request", "cluster_id is invalid")
+    if workload_id and not _SAFE_ID_RE.fullmatch(workload_id):
+        raise ProtocolError("invalid_request", "workload_id is invalid")
 
     timeout_value = value.get("timeout_seconds", 900.0)
     if isinstance(timeout_value, bool) or not isinstance(timeout_value, (int, float)):
@@ -168,8 +168,8 @@ def parse_request(value: Any) -> Request:
     timeout_seconds = float(timeout_value)
     if not math.isfinite(timeout_seconds) or timeout_seconds <= 0 or timeout_seconds > MAX_TIMEOUT_SECONDS:
         raise ProtocolError("invalid_request", "timeout_seconds is outside the supported range")
-    if cluster_id and operation not in {"status", "stop", "sleep", "wake", "workload_status"}:
-        raise ProtocolError("invalid_request", "cluster_id is not valid for this operation")
+    if workload_id and operation not in {"status", "stop", "sleep", "wake", "workload_status"}:
+        raise ProtocolError("invalid_request", "workload_id is not valid for this operation")
 
     wait_value = value.get("wait", True)
     if not isinstance(wait_value, bool):
@@ -224,7 +224,7 @@ def parse_request(value: Any) -> Request:
         request_id=request_id,
         operation=operation,
         binding=binding,
-        cluster_id=cluster_id,
+        workload_id=workload_id,
         timeout_seconds=timeout_seconds,
         wait=wait_value,
     )

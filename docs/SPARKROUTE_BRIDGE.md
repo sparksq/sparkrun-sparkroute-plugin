@@ -87,7 +87,7 @@ Sparkrun job metadata.
 `ensure_ready` may adopt a healthy endpoint matching the fingerprint and selected cluster,
 preferring an owned one — routing to a workload someone else started is
 harmless and avoids a duplicate launch. `stop` refuses anything the bridge did
-not launch (`job_not_owned`); with no `cluster_id` it tears down only the owned
+not launch (`job_not_owned`); with no `workload_id` it tears down only the owned
 matches. Killing a workload a human is using is not recoverable by retrying, so
 the destructive direction fails closed.
 
@@ -213,7 +213,7 @@ from the runtime family alongside native families and Responses capability.
 
 `workloads` reports bounded receipt identities, plugin use, lifecycle state, and
 available actions. `sleep` and `wake` require a binding and exact job in
-`cluster_id`; `workload_status` verifies that job without changing its state.
+`workload_id`; `workload_status` verifies that job without changing its state.
 Sleep/wake run in detached workers sharing activation exclusion with
 `ensure_ready`, including overlapping candidate cluster sets. Uncertain replies
 remain non-ready. SparkRoute exposes these controls through authenticated

@@ -17,7 +17,7 @@ def invoke(name, arguments, sctx, prompt=None):
         from .metadata import build_model_metadata
         from .operations import _recipe_of
 
-        job = next((j for j in api.list_jobs(sctx=sctx) if j.cluster_id == arguments["cluster_id"]), None)
+        job = next((j for j in api.list_jobs(sctx=sctx) if j.workload_id == arguments["workload_id"]), None)
         if job is None or (job.metadata or {}).get("recipe_fingerprint") != arguments["recipe_revision"]:
             return {"model_metadata": {}}
         return {"model_metadata": build_model_metadata(_recipe_of(job), arguments["served_models"])}
@@ -26,7 +26,7 @@ def invoke(name, arguments, sctx, prompt=None):
     result = workloads.endpoints(
         recipe_revision=revision,
         cluster_candidates=binding.cluster_candidates if binding else (),
-        cluster_id=arguments.get("cluster_id", ""),
+        workload_id=arguments.get("workload_id", ""),
         sctx=sctx,
     )
     endpoints = [_project(ep, sctx, result["observed_at"], owner=sctx.operation.manager) for ep in result["endpoints"][:256]]
@@ -56,12 +56,12 @@ def register():
     for name in ("endpoints.discover", "endpoints.status", "endpoints.metadata"):
         fields, required = {"binding": binding}, []
         if name == "endpoints.status":
-            fields["cluster_id"] = {"type": "string", "maxLength": 1024}
+            fields["workload_id"] = {"type": "string", "maxLength": 1024}
             fields["binding"] = {**binding, "required": ["recipe", "recipe_revision"]}
-            required = ["binding", "cluster_id"]
+            required = ["binding", "workload_id"]
         if name == "endpoints.metadata":
             fields = {
-                "cluster_id": {"type": "string", "maxLength": 1024},
+                "workload_id": {"type": "string", "maxLength": 1024},
                 "recipe_revision": {"type": "string", "maxLength": 1024},
                 "served_models": {"type": "array", "items": {"type": "string", "maxLength": 1024}, "maxItems": 256},
             }
