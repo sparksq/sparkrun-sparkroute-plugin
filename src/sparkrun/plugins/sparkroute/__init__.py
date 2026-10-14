@@ -82,7 +82,7 @@ def register(v) -> None:
     when invoked — so a stock install that never touches this gateway pays
     almost nothing for it being here.
     """
-    from sparkrun.core.features import feature_gate_enabled
+    from sparkrun.plugins import feature_gate_enabled
 
     if not feature_gate_enabled("gateway", v) or not feature_gate_enabled(FEATURE_FLAG, v):
         return

@@ -341,8 +341,7 @@ def test_ensure_ready_uses_shared_plan_run_and_readiness():
         mock.patch.object(operations, "_discover", side_effect=[[], [endpoint]]) as discover,
         mock.patch.object(operations.api, "plan", return_value=plan) as planner,
         mock.patch.object(operations.api, "run", return_value=run_result) as run,
-        mock.patch("sparkrun.core.launcher.wait_for_serve_ready", return_value=SimpleNamespace(ready=True)) as readiness,
-        mock.patch("sparkrun.orchestration.primitives.build_ssh_kwargs", return_value={}),
+        mock.patch.object(operations.api, "wait_ready", return_value=SimpleNamespace(ready=True)) as readiness,
     ):
         result = _run_worker_activation(request)
     options = planner.call_args.args[0]
@@ -350,10 +349,55 @@ def test_ensure_ready_uses_shared_plan_run_and_readiness():
     assert options.cluster == "spark-a" and options.auto_port and options.trust is False
     assert options.overrides == {"tensor_parallel": 2}
     assert run.call_args.kwargs["plan"] is plan
-    assert readiness.call_args.args[0] is run_result.launch_result
-    assert "port_timeout_s" not in readiness.call_args.kwargs  # preserve configured readiness policy
+    assert readiness.call_args.args[0] is run_result
+    assert 0 < readiness.call_args.kwargs["timeout"] <= 30  # the request's remaining budget, on top of the readiness policy
     assert discover.call_args.kwargs == {"fingerprint": "abc123abc123", "workload_id": "new", "cluster_candidates": ("spark-a",)}
     assert result["endpoint"]["port"] == 8001 and result["adopted"] is False
+
+
+@pytest.mark.parametrize(
+    ("post_launch", "expected_code"),
+    [
+        ({"return_value": SimpleNamespace(stopped=False)}, None),
+        ({"return_value": SimpleNamespace(stopped=True)}, "activation_failed"),
+        ({"side_effect": operations.api.TrustRejected("untrusted")}, "recipe_trust_rejected"),
+        ({"side_effect": operations.api.SparkrunError("hook failed")}, "activation_failed"),
+    ],
+)
+def test_ensure_ready_post_hooks_use_public_post_launch(post_launch, expected_code):
+    request = Request(request_id="r", operation="ensure_ready", binding=Binding(recipe="@local/qwen"), timeout_seconds=30)
+    recipe = SimpleNamespace(post_exec=["echo ready"], post_commands=[], defaults={"port": 8000})
+    plan = SimpleNamespace(workload_id="new", cluster=SimpleNamespace(name="spark-a"), host_list=["host"], recipe=recipe, is_solo=True)
+    run_result = SimpleNamespace(
+        rc=0,
+        workload_id="new",
+        recipe_fingerprint="abc123abc123",
+        launch_result=object(),
+        host_list=["host"],
+        serve_port=8001,
+        is_solo=True,
+    )
+    endpoint = {"workload_id": "new", "host": "127.0.0.1", "port": 8001}
+    with (
+        mock.patch.object(operations.api, "list_jobs", return_value=[]),
+        mock.patch.object(operations, "_resolve_binding", return_value=(recipe, "abc123abc123", {})),
+        mock.patch.object(operations.api, "default_sctx", return_value=SimpleNamespace(config=object())),
+        mock.patch.object(operations, "_discover", side_effect=[[], [endpoint]]),
+        mock.patch.object(operations.api, "plan", return_value=plan),
+        mock.patch.object(operations.api, "run", return_value=run_result),
+        mock.patch.object(operations.api, "post_launch", **post_launch) as post,
+        mock.patch.object(operations.api, "wait_ready", return_value=SimpleNamespace(ready=True)) as readiness,
+    ):
+        if expected_code is None:
+            assert _run_worker_activation(request)["endpoint"]["port"] == 8001
+            readiness.assert_called_once()
+        else:
+            with pytest.raises(ProtocolError) as raised:
+                _run_worker_activation(request)
+            assert raised.value.code == expected_code
+            readiness.assert_not_called()
+    assert post.call_args.args[0] is run_result
+    assert post.call_args.kwargs["trust"] is False
 
 
 def test_ensure_ready_background_request_returns_operation_without_launching():

@@ -158,7 +158,7 @@ def expected_digest(version: str, target_os: str, target_arch: str) -> str:
 
 def _version_dir(version: str, cache_dir: Path | None = None) -> Path:
     if cache_dir is None:
-        from sparkrun.core.config import resolve_sparkrun_cache_dir
+        from sparkrun.plugins import resolve_sparkrun_cache_dir
 
         cache_dir = resolve_sparkrun_cache_dir()
     return Path(cache_dir) / "gateways" / SPARKROUTE_BINARY / version
@@ -437,7 +437,7 @@ def resolve_sparkrun_executable() -> str:
             in a source checkout that was never installed; ``uv sync`` (or any
             pip/pipx/uvx install) provides the script.
     """
-    from sparkrun.core.application_profile import get_application_profile
+    from sparkrun.plugins import get_application_profile
     import sys
 
     profile = get_application_profile()

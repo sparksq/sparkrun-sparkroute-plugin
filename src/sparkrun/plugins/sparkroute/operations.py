@@ -12,7 +12,7 @@ import time
 from typing import Any
 
 import sparkrun.api as api
-from sparkrun.orchestration.job_metadata import derive_recipe_fingerprint
+from sparkrun.plugins import derive_recipe_fingerprint
 from sparkrun.plugins.sparkroute.metadata import build_model_metadata
 from sparkrun.plugins.sparkroute.protocol import (
     SUPPORTED_OPERATIONS,
@@ -136,7 +136,7 @@ def execute(request: Request) -> dict[str, Any]:
 
 def _require_feature_enabled() -> None:
     """Fail closed unless the integration is enabled."""
-    from sparkrun.core.features import feature_gate_enabled
+    from sparkrun.plugins import feature_gate_enabled
 
     if feature_gate_enabled(REQUIRED_FEATURE_FLAG):
         return
@@ -266,18 +266,21 @@ def _ensure_ready(request: Request, binding: Binding, recipe, fingerprint: str, 
         logger.warning("launched job recorded a different recipe fingerprint than the binding resolved")
     workload_id = run_result.workload_id
 
-    from sparkrun.core.launcher import post_launch_lifecycle, wait_for_serve_ready
-    from sparkrun.orchestration.primitives import build_ssh_kwargs
-
     if recipe.post_exec or recipe.post_commands:
-        post_launch_lifecycle(
-            run_result.launch_result, remote_cache_dir=run_result.effective_cache_dir, trust=False, progress=sctx.progress
-        )
+        # ``post_launch`` reuses the trust verdict ``api.run`` recorded for
+        # this launch, and reports failure and ``stop_after_post`` as values
+        # rather than exiting the bridge process.
+        try:
+            post = api.post_launch(run_result, trust=False, sctx=sctx)
+        except api.TrustRejected as exc:
+            raise ProtocolError("recipe_trust_rejected", "configured recipe requires explicit trust") from exc
+        except api.SparkrunError as exc:
+            raise ProtocolError("activation_failed", "Sparkrun post-launch steps failed", retryable=True) from exc
+        if post.stopped:
+            raise ProtocolError("activation_failed", "the recipe stopped its workload after its post-launch steps")
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise ProtocolError("readiness_timeout", "activation exceeded its readiness budget", retryable=True)
-    import threading
-
     progress(
         "waiting for server readiness",
         {
@@ -288,14 +291,7 @@ def _ensure_ready(request: Request, binding: Binding, recipe, fingerprint: str, 
             "solo": run_result.is_solo,
         },
     )
-    cancel = threading.Event()
-    timer = threading.Timer(remaining, cancel.set)
-    timer.daemon = True
-    timer.start()
-    try:
-        readiness = wait_for_serve_ready(run_result.launch_result, ssh_kwargs=build_ssh_kwargs(sctx.config), cancel=cancel)
-    finally:
-        timer.cancel()
+    readiness = api.wait_ready(run_result, timeout=remaining, sctx=sctx)
     if not readiness.ready:
         raise ProtocolError("readiness_failed", "server startup readiness did not complete (%s)" % readiness.reason, retryable=True)
     endpoints = _discover(sctx, fingerprint=launched_fingerprint, workload_id=workload_id, cluster_candidates=binding.cluster_candidates)
@@ -381,7 +377,7 @@ def _recipe_of(job) -> Any:
     if not state:
         return None
     try:
-        from sparkrun.core.recipe import Recipe
+        from sparkrun.plugins import Recipe
 
         return Recipe._deserialize(state)
     except Exception:  # noqa: BLE001 - advisory metadata only

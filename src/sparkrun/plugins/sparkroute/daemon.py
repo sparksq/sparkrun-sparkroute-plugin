@@ -40,8 +40,7 @@ def _load(name):
 
 
 def register():
-    from sparkrun.plugins import DaemonOp, register_plugin_daemon_op
-    from sparkrun.api._wire import object_schema
+    from sparkrun.plugins import DaemonOp, object_schema, register_plugin_daemon_op
     from .daemon_schemas import RESULTS
 
     binding = object_schema(

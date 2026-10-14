@@ -23,9 +23,24 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from sparkrun.proxy._supervisor import _restrict_dir_permissions, _restrict_file_permissions
-
 logger = logging.getLogger(__name__)
+
+
+def restrict_dir_permissions(path: Path) -> None:
+    """Best-effort chmod 0700 (no-op where the platform lacks POSIX modes)."""
+    try:
+        os.chmod(path, 0o700)
+    except OSError:
+        logger.debug("Could not restrict permissions on %s", path, exc_info=True)
+
+
+def restrict_file_permissions(path: Path) -> None:
+    """Best-effort chmod 0600 (no-op where the platform lacks POSIX modes)."""
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        logger.debug("Could not restrict permissions on %s", path, exc_info=True)
+
 
 #: Roles sparkrun needs: replace its own managed set, and read the serving
 #: revision plus the content-free served-model list that backs
@@ -78,12 +93,12 @@ class ReconcilerCredential:
 
     def _store_secret(self, secret: str, path: Path | None = None) -> None:
         self.state_dir.mkdir(parents=True, exist_ok=True)
-        _restrict_dir_permissions(self.state_dir)
+        restrict_dir_permissions(self.state_dir)
         # Create restricted, then write: a create-then-chmod would leave the
         # secret briefly readable.
         path = path or self.secret_file
         path.touch(mode=0o600, exist_ok=True)
-        _restrict_file_permissions(path)
+        restrict_file_permissions(path)
         path.write_text(secret)
 
     def read_admin_secret(self) -> str | None:
@@ -137,7 +152,7 @@ class ReconcilerCredential:
     def _store_live_token(self, path: Path, token: str) -> None:
         _validate_live_token(token, path.name)
         self.state_dir.mkdir(parents=True, exist_ok=True)
-        _restrict_dir_permissions(self.state_dir)
+        restrict_dir_permissions(self.state_dir)
         descriptor, temporary_name = tempfile.mkstemp(prefix=".%s." % path.name, dir=self.state_dir)
         temporary = Path(temporary_name)
         try:
@@ -149,7 +164,7 @@ class ReconcilerCredential:
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(temporary, path)
-            _restrict_file_permissions(path)
+            restrict_file_permissions(path)
         except OSError as exc:
             raise CredentialError("Could not store the gateway token: %s" % exc) from exc
         finally:
@@ -247,7 +262,7 @@ class ReconcilerCredential:
     def _run_credential_command(self, binary: Path, verb: str, *arguments: str) -> str:
         """Run an offline credential mutation and return its one-time secret."""
         self.state_dir.mkdir(parents=True, exist_ok=True)
-        _restrict_dir_permissions(self.state_dir)
+        restrict_dir_permissions(self.state_dir)
 
         cmd = [
             str(binary),

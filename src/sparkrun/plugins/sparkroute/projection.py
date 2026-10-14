@@ -475,7 +475,7 @@ def resolve_bindings(bindings: list[dict[str, Any]], *, sctx: Any = None) -> lis
     # Deferred: sparkrun.proxy.discovery imports sparkrun.api, so a
     # module-level import here would be circular.
     import sparkrun.api as api
-    from sparkrun.orchestration.job_metadata import derive_recipe_fingerprint
+    from sparkrun.plugins import derive_recipe_fingerprint
 
     resolved: list[ProjectedBinding] = []
     for index, entry in enumerate(bindings):

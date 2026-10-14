@@ -5,7 +5,7 @@
 
 """Version 1 SparkRoute projections; domain workflows remain host APIs."""
 
-from sparkrun.api._wire import object_schema
+from sparkrun.plugins import object_schema
 
 S = {"type": "string"}
 B = {"type": "boolean"}

@@ -46,12 +46,18 @@ import time
 from pathlib import Path
 from typing import Any
 
-from sparkrun.proxy import DEFAULT_MASTER_KEY, DEFAULT_PROXY_HOST, DEFAULT_PROXY_PORT
-from sparkrun.proxy._supervisor import _restrict_dir_permissions
-from sparkrun.plugins import GatewayOperationError, GatewayQueryError, GatewaySupervisor, ProxyModel
-from sparkrun.proxy.gateway import require_gateway_enabled
+from sparkrun.plugins import (
+    DEFAULT_MASTER_KEY,
+    DEFAULT_PROXY_HOST,
+    DEFAULT_PROXY_PORT,
+    GatewayOperationError,
+    GatewayQueryError,
+    GatewaySupervisor,
+    ProxyModel,
+    require_gateway_enabled,
+)
 from sparkrun.plugins.sparkroute.admin import AdminClient, AdminError, RevisionConflict
-from sparkrun.plugins.sparkroute.credentials import CredentialError, ReconcilerCredential
+from sparkrun.plugins.sparkroute.credentials import CredentialError, ReconcilerCredential, restrict_dir_permissions
 from sparkrun.plugins.sparkroute.projection import ProjectionError, build_sparkrun_set, dedupe_bindings, resolve_bindings
 from sparkrun.plugins.sparkroute.release import GatewayReleaseError, ensure_binary, resolve_sparkrun_executable
 
@@ -503,7 +509,7 @@ class SparkrouteEngine(GatewaySupervisor):
             return 1
 
         self.state_dir.mkdir(parents=True, exist_ok=True)
-        _restrict_dir_permissions(self.state_dir)
+        restrict_dir_permissions(self.state_dir)
 
         from .protocol import ProtocolError
 
@@ -859,7 +865,7 @@ class SparkrouteEngine(GatewaySupervisor):
         temporary: Path | None = None
         try:
             self.state_dir.mkdir(parents=True, exist_ok=True)
-            _restrict_dir_permissions(self.state_dir)
+            restrict_dir_permissions(self.state_dir)
             with tempfile.NamedTemporaryFile(
                 mode="w", encoding="utf-8", dir=self.state_dir, prefix=".sparkroute-labels-", delete=False
             ) as stream:
@@ -975,7 +981,7 @@ class SparkrouteEngine(GatewaySupervisor):
         if snapshot == previous_snapshot:
             return
         self.state_dir.mkdir(parents=True, exist_ok=True)
-        _restrict_dir_permissions(self.state_dir)
+        restrict_dir_permissions(self.state_dir)
         temporary = None
         try:
             with tempfile.NamedTemporaryFile(
