@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 Scitrera LLC
+SPDX-FileCopyrightText: 2026 Fox Engine Ltd
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # SparkRoute daemon transport
 
 The unreleased 0.4 integration supports direct daemon HTTP/SSE for workload
