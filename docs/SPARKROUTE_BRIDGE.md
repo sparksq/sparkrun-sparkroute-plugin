@@ -104,7 +104,7 @@ Recovery always performs a stop, independently of an idle action that uses sleep
 Readiness, ownership checks, and reconciliation of uncertain prior launches remain
 the bridge's responsibility. Recovery timers, backoff, budgets, and operator status
 belong to the gateway; see SparkRoute's
-[workload recovery guide](https://github.com/sparksq/sparkroute/blob/v0.0.3/docs/WORKLOAD_RECOVERY.md).
+[workload recovery guide](https://github.com/sparksq/sparkroute/blob/v0.0.5/docs/WORKLOAD_RECOVERY.md).
 
 ## Durable activation and timing
 
