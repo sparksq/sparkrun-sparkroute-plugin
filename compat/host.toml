@@ -5,4 +5,4 @@
 # Sparkrun 0.4 host providing shared daemon workloads and manager credentials.
 # Development assembly copies this host without applying compatibility patches.
 repository = "https://github.com/spark-arena/sparkrun.git"
-commit = "12cb979cc350873dbc08dce4b1009081b7100e42"
+commit = "f2daf6a8f5b4808d43c702ef145a829b391a232e"
