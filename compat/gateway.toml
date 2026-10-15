@@ -4,4 +4,4 @@
 
 # Development SparkRoute source with the native Sparkrun daemon client.
 repository = "https://github.com/sparksq/sparkroute.git"
-commit = "d06feeb9e9e8e9a122d7b70d42d99f58fbf016dc"
+commit = "9683b5b7aed5979289fc8ee3a71f7670c74912d9"

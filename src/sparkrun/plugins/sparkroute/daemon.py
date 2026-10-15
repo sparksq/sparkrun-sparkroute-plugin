@@ -22,7 +22,7 @@ def invoke(name, arguments, sctx, prompt=None):
             return {"model_metadata": {}}
         return {"model_metadata": build_model_metadata(_recipe_of(job), arguments["served_models"])}
     binding = _binding(arguments["binding"]) if arguments.get("binding") else None
-    revision = workloads.resolve_binding(binding, sctx=sctx)[1] if binding else ""
+    revision = (binding.recipe_revision or workloads.resolve_binding(binding, sctx=sctx)[1]) if binding else ""
     result = workloads.endpoints(
         recipe_revision=revision,
         cluster_candidates=binding.cluster_candidates if binding else (),

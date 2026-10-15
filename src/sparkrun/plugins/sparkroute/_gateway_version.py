@@ -5,4 +5,4 @@
 
 """Default gateway release, synchronized from versions.yaml."""
 
-__version__ = "0.0.6"
+__version__ = "0.0.7"

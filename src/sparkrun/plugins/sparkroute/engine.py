@@ -445,6 +445,9 @@ class SparkrouteEngine(GatewaySupervisor):
             if self.daemon_transport
             else ["-sparkrun-command", resolve_sparkrun_executable()]
         )
+        # The gateway default is enabled; only pass the opt-out when requested.
+        if not getattr(self.proxy_config, "auto_update_recipes", True):
+            cmd += ["-sparkrun-auto-update-recipes=false"]
         if self.master_key:
             cmd += [
                 "-caller-auth-mode",
@@ -734,7 +737,7 @@ class SparkrouteEngine(GatewaySupervisor):
             AdminError: Transport, auth, or exhausted retries.
         """
         client = self.admin_client()
-        from .reconciliation import prepare_discovery_routes
+        from .reconciliation import prepare_discovery_routes, retain_recipe_bindings
 
         last_conflict: Exception | None = None
 
@@ -745,9 +748,11 @@ class SparkrouteEngine(GatewaySupervisor):
             if context is None:
                 active = client.active_revision()
                 current = client.get_set().get("document") or {}
+                document = retain_recipe_bindings(document, current)
             else:
                 active = context["active_revision"]
                 current = context["document"]
+                document = retain_recipe_bindings(document, current)
                 document, warnings = prepare_discovery_routes(document, context)
             added, removed = _entity_delta(current, document)
             try:

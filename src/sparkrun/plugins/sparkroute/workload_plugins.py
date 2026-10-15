@@ -72,10 +72,18 @@ def describe_job(job, *, sctx, availability=None) -> dict:
 def inspect_workloads(*, sctx) -> dict:
     import sparkrun.api as api
 
+    from .bridge_workloads import _workload
+
+    report = api.workloads.inventory(owner="sparkroute", sctx=sctx)
+    jobs = {job.workload_id: job for job in api.list_jobs(sctx=sctx)}
     availability = plugin_availability()
     return {
         "plugins": availability,
-        "workloads": [describe_job(j, sctx=sctx, availability=availability) for j in api.list_jobs(sctx=sctx)[:256]],
+        "complete": report.get("complete", False),
+        "workloads": [
+            describe_job(jobs[row["workload_id"]], sctx=sctx, availability=availability) if row["workload_id"] in jobs else _workload(row)
+            for row in report["workloads"]
+        ],
     }
 
 

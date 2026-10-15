@@ -69,6 +69,7 @@ def _project(endpoint, sctx, observed_at, *, owner=OWNER):
 def invoke(name, arguments, sctx, prompt=None, *, legacy=True):
     """Keep expected failures typed across either selected transport."""
     from sparkrun.api.workloads import WorkloadError
+    from sparkrun.api import RecipeNotFound, SparkrunError
     from .protocol import ProtocolError
 
     try:
@@ -81,6 +82,14 @@ def invoke(name, arguments, sctx, prompt=None, *, legacy=True):
         if not legacy:
             raise
         raise ProtocolError(exc.code, str(exc), retryable=exc.retryable) from exc
+    except RecipeNotFound as exc:
+        if not legacy:
+            raise
+        raise ProtocolError("recipe_not_found", "configured recipe could not be resolved") from exc
+    except SparkrunError as exc:
+        if not legacy:
+            raise
+        raise ProtocolError("resolve_failed", "configured recipe could not be resolved") from exc
 
 
 def _invoke(name, arguments, sctx, prompt=None, *, legacy=False):
@@ -89,11 +98,15 @@ def _invoke(name, arguments, sctx, prompt=None, *, legacy=False):
     binding = _binding(arguments["binding"]) if arguments.get("binding") else None
     if name == "workloads.inventory":
         result = workloads.inventory(owner=OWNER, sctx=sctx)
-        return {"workloads": [_workload(row) for row in result["workloads"]], "plugins": _plugins(sctx)}
+        return {
+            "workloads": [_workload(row) for row in result["workloads"]],
+            "plugins": _plugins(sctx),
+            "complete": result.get("complete", False),
+        }
     if name == "capabilities":
         return {"integration_version": 1, "plugins": _plugins(sctx)}
     if name.startswith("endpoints."):
-        revision = workloads.resolve_binding(binding, sctx=sctx)[1] if binding else ""
+        revision = (binding.recipe_revision or workloads.resolve_binding(binding, sctx=sctx)[1]) if binding else ""
         result = workloads.endpoints(
             recipe_revision=revision,
             cluster_candidates=binding.cluster_candidates if binding else (),

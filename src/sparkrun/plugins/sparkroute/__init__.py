@@ -28,7 +28,7 @@ Disabling the plugin preserves settings and generic process status/stop recovery
 
 from __future__ import annotations
 
-__version__ = "0.3.3"
+__version__ = "0.3.4"
 
 import logging
 

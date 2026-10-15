@@ -1283,3 +1283,13 @@ def test_manual_unload_rejects_missing_recipe_source_without_editing_bindings(tm
             engine.unregister_loaded_model("@official/qwen")
     assert config.bindings == [{"recipe": "@official/qwen"}]
     assert config.save_calls == 0
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+@pytest.mark.parametrize("transport", ["bridge", "daemon"])
+def test_command_passes_recipe_update_opt_out(engine, binary, enabled, transport):
+    engine.proxy_config.auto_update_recipes = enabled
+    engine.proxy_config.gateway_transport = transport
+    with mock.patch.object(engine_mod, "resolve_sparkrun_executable", return_value="sparkrun"):
+        cmd = engine.build_command(binary)
+    assert ("-sparkrun-auto-update-recipes=false" in cmd) is (not enabled)

@@ -78,6 +78,13 @@ class SparkrouteConfig:
         return value if value in {"permissive", "strict"} else "permissive"
 
     @property
+    def auto_update_recipes(self):
+        value = self._value("auto_update_recipes", True)
+        if not isinstance(value, bool):
+            raise GatewayOperationError("gateways.sparkroute.auto_update_recipes must be true or false")
+        return value
+
+    @property
     def bindings(self):
         value = self._value("bindings", [])
         if not isinstance(value, list) or any(not isinstance(entry, dict) for entry in value):

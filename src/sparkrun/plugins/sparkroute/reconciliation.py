@@ -89,3 +89,53 @@ def prepare_discovery_routes(document: dict, context: dict) -> tuple[dict, tuple
         model for name, model in sorted(models.items()) if name not in removed and model.get("profile", {}).get("parent") not in removed
     ]
     return document, tuple(warnings)
+
+
+def retain_recipe_bindings(document: dict, previous: dict) -> dict:
+    """Keep saved pins and IDs until the gateway safely applies recipe updates.
+
+    Recipe/placement/override changes are explicit binding edits. Catalog drift
+    alone must not race gateway admission or reset an operator reference into
+    this set. The gateway applies both owners' updates under workload gates.
+    """
+
+    def key(deployment):
+        source = deployment.get("endpoint_source", {})
+        if source.get("type") != "activatable" or source.get("controller") != "sparkrun":
+            return None
+        return (source.get("recipe"), tuple(source.get("cluster_candidates", [])), tuple(sorted(source.get("overrides", {}).items())))
+
+    saved = {key(item): item for item in previous.get("deployments", []) if key(item) is not None}
+    document = deepcopy(document)
+    names = {}
+    for index, item in enumerate(document.get("deployments", [])):
+        old = saved.get(key(item))
+        if old is None:
+            continue
+        names[item["name"]] = old["name"]
+        if item["endpoint_source"].get("recipe_revision") != old["endpoint_source"].get("recipe_revision"):
+            document["deployments"][index] = deepcopy(old)
+        else:
+            item["name"] = old["name"]
+            item["endpoint_source"] = deepcopy(old["endpoint_source"])
+    for model in document.get("virtual_models", []):
+        for pool in model.get("pools", []):
+            for target in pool.get("targets", []):
+                target["deployment"] = names.get(target["deployment"], target["deployment"])
+    # Profiles newly introduced by an unapplied recipe cannot be advertised yet.
+    implementations = {item["name"]: item.get("request_profiles", {}) for item in document.get("deployments", [])}
+    models = {item["name"]: item for item in document.get("virtual_models", [])}
+
+    def available(model):
+        profile = model.get("profile")
+        if not profile:
+            return True
+        parent = models.get(profile.get("parent"), {})
+        return any(
+            profile.get("selector") in implementations.get(target["deployment"], {})
+            for pool in parent.get("pools", [])
+            for target in pool.get("targets", [])
+        )
+
+    document["virtual_models"] = [item for item in document.get("virtual_models", []) if available(item)]
+    return document

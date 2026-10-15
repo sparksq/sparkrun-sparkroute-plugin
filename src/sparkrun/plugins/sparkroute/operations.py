@@ -92,25 +92,6 @@ def execute(request: Request) -> dict[str, Any]:
         return {"endpoints": [_project(e) for e in _discover(sctx)]}
     if binding is None:  # Protocol parsing enforces this; retain a fail-closed seam.
         raise ProtocolError("invalid_request", "operation requires a binding")
-    recipe, fingerprint, _overrides = _resolve_binding(binding, sctx)
-
-    if request.operation == "resolve":
-        return {
-            "recipe": getattr(recipe, "qualified_name", None) or getattr(recipe, "name", binding.recipe),
-            "recipe_revision": fingerprint,
-            "model": str(getattr(recipe, "model", "") or ""),
-            "runtime": str(getattr(recipe, "runtime", "") or ""),
-        }
-    if request.operation == "discover":
-        return {"endpoints": [_project(e) for e in _discover(sctx, fingerprint=fingerprint, cluster_candidates=binding.cluster_candidates)]}
-    if request.operation == "status":
-        endpoint = _adoptable(
-            _discover(sctx, fingerprint=fingerprint, workload_id=request.workload_id, cluster_candidates=binding.cluster_candidates)
-        )
-        return {
-            "state": "ready" if endpoint else "offline",
-            "endpoint": _project(endpoint),
-        }
     if request.operation == "ensure_ready":
         from .jobs import start_operation, wait_operation
 
@@ -126,10 +107,30 @@ def execute(request: Request) -> dict[str, Any]:
             require_transport(db, "bridge")
             return invoke(
                 "workloads.stop",
-                {"binding": {**asdict(binding), "recipe_revision": fingerprint}, "workload_id": request.workload_id},
+                {
+                    "binding": {**asdict(binding), "recipe_revision": binding.recipe_revision or _resolve_binding(binding, sctx)[1]},
+                    "workload_id": request.workload_id,
+                },
                 sctx,
                 legacy=True,
             )
+    # Observation uses the recorded revision, even if its source has changed.
+    if request.operation in {"status", "discover"}:
+        fingerprint = binding.recipe_revision or _resolve_binding(binding, sctx)[1]
+        endpoints = _discover(sctx, fingerprint=fingerprint, workload_id=request.workload_id, cluster_candidates=binding.cluster_candidates)
+        if request.operation == "discover":
+            return {"endpoints": [_project(e) for e in endpoints]}
+        endpoint = _adoptable(endpoints)
+        return {"state": "ready" if endpoint else "offline", "endpoint": _project(endpoint)}
+    recipe, fingerprint, _overrides = _resolve_binding(binding, sctx)
+
+    if request.operation == "resolve":
+        return {
+            "recipe": getattr(recipe, "qualified_name", None) or getattr(recipe, "name", binding.recipe),
+            "recipe_revision": fingerprint,
+            "model": str(getattr(recipe, "model", "") or ""),
+            "runtime": str(getattr(recipe, "runtime", "") or ""),
+        }
     raise ProtocolError("unsupported_operation", "unsupported bridge operation")
 
 

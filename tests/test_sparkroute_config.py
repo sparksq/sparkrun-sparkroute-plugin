@@ -180,3 +180,18 @@ def test_engine_consumes_new_settings_without_writing_during_preview(tmp_path, m
     engine._persist_discovered_models([])
     assert read(path)["gateways"]["sparkroute"]["discovered_models"] == []
     assert "discovered_models" not in read(path)
+
+
+@pytest.mark.parametrize("setting, expected", [({}, True), ({"auto_update_recipes": True}, True), ({"auto_update_recipes": False}, False)])
+def test_recipe_auto_update_defaults_on_and_honors_opt_out(tmp_path, setting, expected):
+    path, cfg = seed(tmp_path, {"gateways": {"sparkroute": setting}})
+    before = path.read_bytes()
+    assert cfg.auto_update_recipes is expected
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("value", ["false", "true", 0, 1, None, [], {}])
+def test_recipe_auto_update_requires_yaml_boolean(tmp_path, value):
+    _, cfg = seed(tmp_path, {"gateways": {"sparkroute": {"auto_update_recipes": value}}})
+    with pytest.raises(GatewayOperationError, match="auto_update_recipes must be true or false"):
+        _ = cfg.auto_update_recipes

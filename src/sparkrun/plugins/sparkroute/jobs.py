@@ -233,7 +233,7 @@ def run_worker(config_path: Path, operation_id: str) -> None:
     from sparkrun.application import initialize
     import logging
     from logging.handlers import RotatingFileHandler
-    from .operations import _require_feature_enabled, _resolve_binding
+    from .operations import _require_feature_enabled
 
     global _current
     sctx = initialize(config_path=config_path)
@@ -275,12 +275,11 @@ def run_worker(config_path: Path, operation_id: str) -> None:
             binding = request.binding
             if binding is None:
                 raise ProtocolError("invalid_request", "operation requires a binding")
-            recipe, fingerprint, overrides = _resolve_binding(binding, sctx)
             from .bridge_workloads import invoke
 
             result = invoke(
                 "workloads.ensure_ready",
-                {"binding": asdict(replace(binding, recipe_revision=fingerprint)), "timeout": request.timeout_seconds},
+                {"binding": asdict(binding), "timeout": request.timeout_seconds},
                 sctx,
                 legacy=True,
             )

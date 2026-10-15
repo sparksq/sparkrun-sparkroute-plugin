@@ -57,7 +57,7 @@ resolution, on-demand launch, and ownership-checked shutdown.
 
 GitHub releases also provide source and wheel artifacts for inspection and
 vendoring. There is no package registry publisher. The default gateway is
-SparkRoute v0.0.6, with verified
+SparkRoute v0.0.7, with verified
 archive digests for all six controller platforms. A compatible host downloads
 the gateway when it starts, without requiring GitHub authentication. Adding
 the plugin does not download or start a gateway.
@@ -142,6 +142,7 @@ gateways:
   sparkroute:
     transport: bridge
     capability_policy: permissive
+    auto_update_recipes: true        # default; false keeps saved recipe pins
     # config: /path/to/bootstrap.yaml  # one-time seed for an empty gateway DB
     # admin_host: 127.0.0.1           # either admin key selects a separate listener
     # admin_port: 8081
@@ -175,7 +176,7 @@ sets in the same lists, with generated entries grayed out and read-only.
 Model routing offers strategy guidance, explicit agent-stage model roles, and
 switching-sensitivity controls. The preview can simulate tool failures, edits,
 passing tests, and compaction without calling or starting models. See the
-[routing guide](https://github.com/sparksq/sparkroute/blob/v0.0.6/docs/MODEL_ROUTING.md)
+[routing guide](https://github.com/sparksq/sparkroute/blob/v0.0.7/docs/MODEL_ROUTING.md)
 for strategy configuration and examples.
 
 The top-right **Configuration preset** selector shows **Default** or a named
@@ -276,7 +277,16 @@ with the same workload controls.
 Registry search is cache-only; **Refresh registries** is explicit and reports
 partial failures. Local paths belong to the control node. Uploads do not grant
 trust or include referenced auxiliary files. Validation and activation check
-pinned recipe contents; changed recipes require a fresh preview. Unknown API
+pinned recipe contents. Saved bindings follow trusted recipe updates automatically
+by default; set `gateways.sparkroute.auto_update_recipes: false` and restart the
+proxy to require manual review instead. The gateway checks every minute, waiting
+until the previous workload has been stopped and removed (sleeping workloads
+still count). It preserves deployment IDs, routing pools, aliases, overrides and
+lifecycle policy. It does not refresh registries, restart workloads, grant trust,
+or change a deployment to a different served model/API contract. Invalid or
+unavailable updates retain the saved pin and are reported in the gateway log.
+With auto-updates off, **Review recipe update** in Model Deployments opens the
+manual update flow; unrelated routing edits remain saveable. Unknown API
 model names never trigger an inferred registry search or launch.
 
 This flow requires the catalog API in the sparkrun core commit pinned in
