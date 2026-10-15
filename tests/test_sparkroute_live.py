@@ -24,6 +24,7 @@ from types import SimpleNamespace
 import pytest
 
 from sparkrun.plugins.sparkroute import register
+from sparkrun.plugins.sparkroute._application_profile import child_environment
 from sparkrun.plugins.sparkroute.engine import SparkrouteEngine
 from sparkrun.plugins.sparkroute.release import resolve_sparkrun_executable
 
@@ -172,9 +173,12 @@ def test_real_gateway_is_supervised_authenticated_and_serves_warm_aliases(tmp_pa
         )
         assert isinstance(catalog["clusters"], list)
         assert bootstrap["build"]["license"] == "AGPL-3.0-only"
-        # The actual host console script must accept the hidden JSON bridge.
+        # The actual host console script must accept the hidden JSON bridge,
+        # given the same environment the engine hands the gateway (otherwise
+        # the child reads the developer's own config and installed plugins).
         bridge = subprocess.run(
             [resolve_sparkrun_executable(), "gateway-bridge"],
+            env=child_environment(managed_plugin.config.config_path),
             input=json.dumps({"schema_version": 5, "request_id": "live-capabilities", "operation": "capabilities"}),
             capture_output=True,
             text=True,
