@@ -59,7 +59,7 @@ def test_release_reuses_the_complete_test_matrix_and_limits_write_access():
     job = workflow["jobs"]["test-sparkrun-sparkroute-plugin"]
     assert job["strategy"]["matrix"]["python-version"] == ["3.12", "3.13"]
     commands = [step.get("run", "").strip() for step in job["steps"]]
-    assert "python -m pytest -v" in commands
+    assert "SPARKRUN_CHECKOUT=.dev/ci-sparkrun python -m pytest -v" in commands
     assert "python scripts/update-versions.py --check" in commands
     assert "python scripts/generate-ci-gha.py --check" in commands
 
