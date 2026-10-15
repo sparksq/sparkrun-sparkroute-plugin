@@ -87,6 +87,32 @@ class AdminClient:
         """
         return str(self._request("GET", "/v1/config/managed-sets").get("active_revision") or "")
 
+    def reconciliation_context(self) -> dict[str, Any] | None:
+        """Atomic namespace/reference snapshot; old gateways retain strict sync."""
+        try:
+            result = self._request("GET", "/v1/config/managed-sets/%s/reconcile-context" % OWNER)
+        except AdminError as exc:
+            if exc.status in (404, 501):
+                return None
+            raise
+        if (
+            not isinstance(result.get("active_revision"), str)
+            or not result["active_revision"]
+            or not isinstance(result.get("document"), dict)
+            or not isinstance(result.get("reserved_names"), list)
+            or not all(
+                isinstance(claim, dict)
+                and all(isinstance(claim.get(key), str) and claim[key] for key in ("name", "owner", "model", "kind"))
+                for claim in result["reserved_names"]
+            )
+            or not isinstance(result.get("referenced_deployments"), list)
+            or not all(isinstance(name, str) and name for name in result["referenced_deployments"])
+            or not isinstance(result.get("referenced_models", []), list)
+            or not all(isinstance(name, str) and name for name in result.get("referenced_models", []))
+        ):
+            raise AdminError("gateway returned an invalid reconciliation context")
+        return result
+
     def get_set(self) -> dict[str, Any]:
         """Read the complete sparkrun set (metadata plus its document)."""
         return self._request("GET", "/v1/config/managed-sets/%s" % OWNER)

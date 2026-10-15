@@ -158,7 +158,7 @@ def build_sparkrun_set(
             target is bound.
         permissive: Emit ``capability_policy.unknown = "try"``, letting the
             gateway attempt undeclared optional capabilities instead of
-            refusing them. See ``ProxyConfig.capability_policy``.
+            refusing them. See ``gateways.sparkroute.capability_policy`` in proxy.yaml.
         discovered_models: Upstream model names observed by the last explicit
             discovery sync. These render as ``discovered`` sources and never
             replace or remove activatable bindings.
@@ -465,7 +465,7 @@ def resolve_bindings(bindings: list[dict[str, Any]], *, sctx: Any = None) -> lis
     the user believes exists, which is worse than refusing to reconcile.
 
     Args:
-        bindings: Entries from ``ProxyConfig.bindings``.
+        bindings: Entries from ``gateways.sparkroute.bindings`` in proxy.yaml.
         sctx: Optional shared session context (avoids re-scanning registries).
 
     Raises:

@@ -180,3 +180,41 @@ Its status, code, retryability and exception causes remain available to callers.
 `query_models()` returns a tuple of `ProxyModel` records. Failed or malformed
 status responses raise `GatewayQueryError`; a successful empty response returns
 an empty tuple. No provider-specific host adapter is required.
+
+
+### Discovered deployments with conflicting public names
+
+On gateways supporting `GET /v1/config/managed-sets/sparkrun/reconcile-context`,
+discovery imports a running deployment even when its default model name or an
+alias is already reserved by an operator route. Only the conflicting generated
+route or alias is withheld; unrelated discoveries still apply. Explicit recipe
+binding conflicts continue to fail strict gateway validation.
+
+The console shows the deployment as **Not routed**, independently of workload
+health, and links to the existing route. Add or replace its target there, or
+create a route with another name. Discovery never edits operator routing.
+Successful sweeps expose these decisions as routing warnings in updated Sparkrun
+hosts, and keep polling normally. Once an operator route references the imported
+deployment, subsequent sweeps preserve that correction and clear the warning.
+
+Referenced discovered deployments remain configured when their workloads stop;
+their endpoint availability still follows live discovery. Removing the last
+operator reference allows a later sweep to remove the deployment. Generated
+parents used by operator profiles or guardrails are retained with their targets.
+
+The gateway supplies reserved names, aliases (including inherited profile
+aliases), the current Sparkrun document and incoming references in one revision-
+bound snapshot. Every replacement uses that revision; concurrent operator edits
+cause a fresh snapshot and rebuild. The reconciler does not read operator secrets
+or configuration. Older gateways retain their original strict reconciliation
+behavior; deploy the updated gateway and plugin together for conflict handling.
+
+## Proxy settings
+
+In `proxy.yaml`, SparkRoute-owned settings use `gateways.sparkroute`: `config`,
+`transport`, `admin_host`, `admin_port`, `allow_insecure_admin_nonloopback`,
+`capability_policy`, `bindings`, and `discovered_models`. Listener settings,
+proxy discovery scheduling and aliases stay shared. Only the namespaced schema
+is supported; legacy locations are not read or migrated. Generated-state saves
+merge changed keys under the shared proxy lock, preserving concurrent edits and
+other gateways' sections. Reads and dry runs leave the file untouched.

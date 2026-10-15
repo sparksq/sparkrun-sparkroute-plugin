@@ -46,12 +46,12 @@ def test_managed_daemon_gateway_and_independent_discovery(tmp_path, monkeypatch,
             {
                 "proxy": {
                     "gateway": "sparkroute",
-                    "gateway_transport": "daemon",
                     "host": "127.0.0.1",
                     "port": port,
                     "master_key": "test-token",
                     "discover_interval": 1,
-                }
+                },
+                "gateways": {"sparkroute": {"transport": "daemon"}},
             }
         )
     )

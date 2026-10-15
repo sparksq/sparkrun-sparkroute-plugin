@@ -74,7 +74,7 @@ source dev.sh
 Automatic preparation verifies development provenance using your trusted Git
 objects or authenticated GitHub access. It exports the existing development
 override, which emits a runtime warning because it bypasses production release
-pins. Production acquisition verifies the published v0.0.5 archive digests;
+pins. Production acquisition verifies the published v0.0.6 archive digests;
 installing the package alone does not trigger downloads or development builds.
 
 Use a separate SparkRun configuration/cache for development so proxy state,
@@ -82,9 +82,10 @@ credentials, bindings, and workloads are independent of a production setup.
 The test suite redirects these paths and disables external plugin loading and
 registry fetching.
 
-Plugin v0.3.2 pins SparkRoute v0.0.5 and its matching source. This pairing uses
-bridge schema v5 for recipe request profiles and includes opt-in automatic
-workload recovery. Clear any explicit binary override before sourcing `dev.sh`
+Plugin v0.3.3 pins SparkRoute v0.0.6 and its matching source. This pairing uses
+bridge schema v5 for recipe request profiles, includes opt-in automatic
+workload recovery, and keeps discovered deployments visible when public names
+conflict. SparkRoute settings use only `gateways.sparkroute` in `proxy.yaml`. Clear any explicit binary override before sourcing `dev.sh`
 to select the pinned build. The host must provide the Sparkrun 0.4 application
 and shared gateway APIs.
 

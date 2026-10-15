@@ -34,10 +34,13 @@ the managed plugin loader. In `proxy.yaml`:
 ```yaml
 proxy:
   gateway: sparkroute
-  gateway_transport: daemon
   discovery_backend: daemon
   auto_discover: true
   discover_interval: 30
+
+gateways:
+  sparkroute:
+    transport: daemon
 ```
 
 Start with `sparkrun proxy start`. A matching local daemon is attached or started;

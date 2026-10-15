@@ -458,6 +458,7 @@ def test_reset_refuses_while_the_gateway_is_running(engine):
 
 def _client(active=REV_A, current=None, replace=None):
     client = mock.Mock()
+    client.reconciliation_context.return_value = None
     client.active_revision.return_value = active
     client.status.return_value = {"config_revision": active}
     client.get_set.return_value = {"document": current if current is not None else {}}
@@ -493,6 +494,7 @@ def test_conflict_retries_with_a_fresh_revision_not_the_stale_one(engine):
     """A 409 means an operator wrote between our read and our write; retrying
     with the stale token would only conflict again."""
     client = mock.Mock()
+    client.reconciliation_context.return_value = None
     client.active_revision.side_effect = [REV_A, REV_B, REV_B]
     client.status.return_value = {"config_revision": REV_B}
     client.get_set.return_value = {"document": {}}
@@ -731,6 +733,7 @@ def test_models_come_from_status_so_operator_entries_are_included(engine):
     """sparkrun's reconcile role cannot read the operator document, so
     /v1/status is the only complete answer to "what can I call?"."""
     client = mock.Mock()
+    client.reconciliation_context.return_value = None
     client.status.return_value = {"served_model_names": ["fast", "operator-model", "qwen3-8b"]}
     with mock.patch.object(engine, "admin_client", return_value=client):
         models = engine.query_models()
@@ -739,6 +742,7 @@ def test_models_come_from_status_so_operator_entries_are_included(engine):
 
 def test_models_report_query_failure_when_the_gateway_is_unreachable(engine):
     client = mock.Mock()
+    client.reconciliation_context.return_value = None
     client.status.side_effect = AdminError("unreachable")
     with mock.patch.object(engine, "admin_client", return_value=client):
         with pytest.raises(GatewayQueryError, match="unreachable") as caught:
@@ -748,6 +752,7 @@ def test_models_report_query_failure_when_the_gateway_is_unreachable(engine):
 
 def test_models_reject_a_status_response_without_the_contract_field(engine):
     client = mock.Mock()
+    client.reconciliation_context.return_value = None
     client.status.return_value = {"config_revision": REV_B}
     with mock.patch.object(engine, "admin_client", return_value=client):
         with pytest.raises(GatewayQueryError, match="missing served_model_names"):
@@ -757,6 +762,7 @@ def test_models_reject_a_status_response_without_the_contract_field(engine):
 @pytest.mark.parametrize("names", [None, "model", [""], [1]])
 def test_models_reject_invalid_status_names(engine, names):
     client = mock.Mock()
+    client.reconciliation_context.return_value = None
     client.status.return_value = {"served_model_names": names}
     with mock.patch.object(engine, "admin_client", return_value=client):
         with pytest.raises(GatewayQueryError, match="invalid served_model_names"):
@@ -765,6 +771,7 @@ def test_models_reject_invalid_status_names(engine, names):
 
 def test_empty_model_query_succeeds_after_failure(engine):
     client = mock.Mock()
+    client.reconciliation_context.return_value = None
     client.status.side_effect = [AdminError("unreachable"), {"served_model_names": []}]
     with mock.patch.object(engine, "admin_client", return_value=client):
         with pytest.raises(GatewayQueryError):
@@ -774,6 +781,7 @@ def test_empty_model_query_succeeds_after_failure(engine):
 
 def test_model_query_propagates_programming_errors(engine):
     client = mock.Mock()
+    client.reconciliation_context.return_value = None
     client.status.side_effect = RuntimeError("provider bug")
     with mock.patch.object(engine, "admin_client", return_value=client):
         with pytest.raises(RuntimeError, match="provider bug") as caught:
@@ -783,6 +791,7 @@ def test_model_query_propagates_programming_errors(engine):
 
 def test_serving_revision_is_read_from_status(engine):
     client = mock.Mock()
+    client.reconciliation_context.return_value = None
     client.status.return_value = {"config_revision": REV_B}
     with mock.patch.object(engine, "admin_client", return_value=client):
         assert engine.serving_revision() == REV_B
@@ -942,7 +951,7 @@ def test_explicit_admin_host_or_port_keeps_a_separate_listener(tmp_path, binary)
     from sparkrun.proxy.config import ProxyConfig
 
     config = ProxyConfig(tmp_path / "proxy.yaml")
-    config.set_proxy(gateway_admin_port=8091)
+    config._data["gateways"] = {"sparkroute": {"admin_port": 8091}}
     engine = SparkrouteEngine(host="0.0.0.0", port=4000, state_dir=tmp_path / "state", proxy_config=config)
     with mock.patch.object(engine_mod, "resolve_sparkrun_executable", return_value="sparkrun"):
         command = engine.build_command(binary)
@@ -1022,7 +1031,7 @@ def test_default_open_auth_implies_the_nonloopback_permission(tmp_path, binary):
     with mock.patch.object(engine_mod, "resolve_sparkrun_executable", return_value="sparkrun"):
         command = engine.build_command(binary)
 
-    assert config.gateway_allow_insecure_admin_nonloopback is False
+    assert engine.proxy_config.gateway_allow_insecure_admin_nonloopback is False
     assert "-allow-insecure-admin-nonloopback" in command
 
 

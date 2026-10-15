@@ -57,7 +57,7 @@ resolution, on-demand launch, and ownership-checked shutdown.
 
 GitHub releases also provide source and wheel artifacts for inspection and
 vendoring. There is no package registry publisher. The default gateway is
-SparkRoute v0.0.5, with verified
+SparkRoute v0.0.6, with verified
 archive digests for all six controller platforms. A compatible host downloads
 the gateway when it starts, without requiring GitHub authentication. Adding
 the plugin does not download or start a gateway.
@@ -123,9 +123,50 @@ Native CI exercises both the gateway and the installed sparkrun bridge on all
 six combinations. A source pin in `compat/gateway.toml` identifies the paired
 Go checkout; it is separate from the verified release archive pins.
 
+## Proxy configuration namespace
+
+SparkRoute settings in `~/.config/sparkrun/proxy.yaml` belong under
+`gateways.sparkroute`, matching Sparkrun's `gateways.<name>` convention:
+
+```yaml
+proxy:
+  gateway: sparkroute
+  host: 127.0.0.1
+  port: 4000
+  auto_discover: true
+
+aliases:
+  assistant: example/model
+
+gateways:
+  sparkroute:
+    transport: bridge
+    capability_policy: permissive
+    # config: /path/to/bootstrap.yaml  # one-time seed for an empty gateway DB
+    # admin_host: 127.0.0.1           # either admin key selects a separate listener
+    # admin_port: 8081
+    # allow_insecure_admin_nonloopback: false
+    bindings: []                    # durable on-demand recipe catalog
+    discovered_models: []           # maintained by discovery
+```
+
+Listener host/port, master key, gateway selection, discovery scheduling and
+aliases remain shared. A separate `gateways.litellm` section is preserved and
+never interpreted by SparkRoute. Recipe YAML's `sparkroute:` request-profile
+section and the gateway's own managed configuration are separate formats.
+
+Only `gateways.sparkroute` is read for SparkRoute settings and catalogs;
+legacy locations are not supported or migrated. Generated-state saves lock and
+re-read the latest file, merging individual keys so concurrent edits, other
+gateways and shared settings survive. Malformed gateway mappings are rejected
+without rewriting the file. Reads and dry runs leave the file untouched.
+
+For daemon transport, also explicitly set the shared
+`proxy.discovery_backend: daemon`; see [daemon setup](docs/SPARKROUTE_DAEMON.md).
+
 ## Configuration ownership
 
-sparkrun's `proxy.yaml` bindings project into the gateway's `sparkrun` managed
+`gateways.sparkroute.bindings` in sparkrun's `proxy.yaml` project into the gateway's `sparkrun` managed
 configuration set. The `operator` set remains independently editable through
 the SparkRoute console. Reconciliation replaces only the sparkrun set under
 revision checks and applies without a gateway restart. The console presents both
@@ -134,7 +175,7 @@ sets in the same lists, with generated entries grayed out and read-only.
 Model routing offers strategy guidance, explicit agent-stage model roles, and
 switching-sensitivity controls. The preview can simulate tool failures, edits,
 passing tests, and compaction without calling or starting models. See the
-[routing guide](https://github.com/sparksq/sparkroute/blob/v0.0.5/docs/MODEL_ROUTING.md)
+[routing guide](https://github.com/sparksq/sparkroute/blob/v0.0.6/docs/MODEL_ROUTING.md)
 for strategy configuration and examples.
 
 The top-right **Configuration preset** selector shows **Default** or a named
@@ -457,3 +498,31 @@ fresh console-free child with an explicit config file. Sparkrun 0.4 application
 APIs are required; unsupported-host fallbacks have been removed. The top-level
 plugin module declares `SPARKRUN_PLUGIN_API_VERSION = 1`, independently of the
 application-profile schema version.
+
+
+### Discovered deployments with conflicting public names
+
+On gateways supporting `GET /v1/config/managed-sets/sparkrun/reconcile-context`,
+discovery imports a running deployment even when its default model name or an
+alias is already reserved by an operator route. Only the conflicting generated
+route or alias is withheld; unrelated discoveries still apply. Explicit recipe
+binding conflicts continue to fail strict gateway validation.
+
+The console shows the deployment as **Not routed**, independently of workload
+health, and links to the existing route. Add or replace its target there, or
+create a route with another name. Discovery never edits operator routing.
+Successful sweeps expose these decisions as routing warnings in updated Sparkrun
+hosts, and keep polling normally. Once an operator route references the imported
+deployment, subsequent sweeps preserve that correction and clear the warning.
+
+Referenced discovered deployments remain configured when their workloads stop;
+their endpoint availability still follows live discovery. Removing the last
+operator reference allows a later sweep to remove the deployment. Generated
+parents used by operator profiles or guardrails are retained with their targets.
+
+The gateway supplies reserved names, aliases (including inherited profile
+aliases), the current Sparkrun document and incoming references in one revision-
+bound snapshot. Every replacement uses that revision; concurrent operator edits
+cause a fresh snapshot and rebuild. The reconciler does not read operator secrets
+or configuration. Older gateways retain their original strict reconciliation
+behavior; deploy the updated gateway and plugin together for conflict handling.

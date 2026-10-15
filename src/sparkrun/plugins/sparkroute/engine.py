@@ -20,7 +20,7 @@ routing policy is safe by construction rather than by convention. Nothing here
 restarts the gateway to apply a change: the gateway builds a new runtime
 generation and drains the old one, so activation leases survive.
 
-``proxy.gateway_config`` is therefore a **one-time bootstrap seed**, passed as
+``gateways.sparkroute.config`` is therefore a **one-time bootstrap seed**, passed as
 ``-config-bootstrap`` and imported into the ``operator`` set only while the
 configuration database is empty. ``-config`` is rejected in SQLite mode.
 
@@ -140,6 +140,16 @@ class SparkrouteEngine(GatewaySupervisor):
         self.sctx = sctx
         self._discovery_labels: dict[str, Any] | None = None
         self.credential = ReconcilerCredential(self.state_dir / "gateway")
+
+    @property
+    def proxy_config(self):
+        return self._proxy_config
+
+    @proxy_config.setter
+    def proxy_config(self, value):
+        from .config import gateway_config_view
+
+        self._proxy_config = gateway_config_view(value)
 
     @property
     def daemon_transport(self) -> bool:
@@ -724,12 +734,21 @@ class SparkrouteEngine(GatewaySupervisor):
             AdminError: Transport, auth, or exhausted retries.
         """
         client = self.admin_client()
-        document = self.build_desired_set(aliases)
+        from .reconciliation import prepare_discovery_routes
+
         last_conflict: Exception | None = None
 
         for attempt in range(RECONCILE_ATTEMPTS):
-            active = client.active_revision()
-            current = client.get_set().get("document") or {}
+            document = self.build_desired_set(aliases)
+            context = client.reconciliation_context()
+            warnings: tuple[str, ...] = ()
+            if context is None:
+                active = client.active_revision()
+                current = client.get_set().get("document") or {}
+            else:
+                active = context["active_revision"]
+                current = context["document"]
+                document, warnings = prepare_discovery_routes(document, context)
             added, removed = _entity_delta(current, document)
             try:
                 result = client.replace(document, active, reason or "sparkrun reconcile")
@@ -737,7 +756,6 @@ class SparkrouteEngine(GatewaySupervisor):
                 last_conflict = exc
                 # Rebuild rather than resubmit: our own desired state may also
                 # have moved while we were waiting.
-                document = self.build_desired_set(aliases)
                 time.sleep(RECONCILE_BACKOFF_SECONDS * (attempt + 1))
                 continue
             except AdminError as exc:
@@ -748,6 +766,7 @@ class SparkrouteEngine(GatewaySupervisor):
                     raise SparkrouteConfigError(str(exc)) from exc
                 raise
             self._await_serving_config(client)
+            self._discovery_warnings = warnings
             if not result.get("changed", True):
                 return 0, 0
             return added, removed
@@ -1031,6 +1050,10 @@ class SparkrouteEngine(GatewaySupervisor):
         self.proxy_config.set_discovered_models(models)
         self.proxy_config.save()
         return True
+
+    def discovery_warnings(self) -> tuple[str, ...]:
+        """Successfully imported deployments whose generated routes need attention."""
+        return getattr(self, "_discovery_warnings", ())
 
     def sync_models(self, endpoints: list, aliases: dict[str, str] | None = None) -> tuple[int, int]:
         """Import the live discovery snapshot, then reconcile the managed set.

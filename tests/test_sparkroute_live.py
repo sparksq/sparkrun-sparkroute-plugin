@@ -166,6 +166,48 @@ def test_real_gateway_is_supervised_authenticated_and_serves_warm_aliases(tmp_pa
             engine.credential.read_admin_token(),
         )
         assert engine.reconcile(reason="preserve selected operator preset") == (0, 0)
+        # Import a model whose default name collides with an operator alias.
+        # The new deployment and an unrelated model must still be selectable.
+        from copy import deepcopy
+        from sparkrun.plugins.sparkroute.projection import discovered_deployment_name
+
+        client = engine.admin_client()
+        operator = client._request("GET", "/v1/config/managed-sets/operator")["document"]
+        config.discovered_models = ["coding", "unrelated"]
+        engine.reconcile(reason="discovery name conflict")
+        imported = client.get_set()["document"]
+        discovered_id = discovered_deployment_name("coding")
+        assert discovered_id in {entry["name"] for entry in imported["deployments"]}
+        assert {entry["name"] for entry in imported["virtual_models"]} == {"unrelated"}
+        assert len(engine.discovery_warnings()) == 1
+        target = next(item for item in client.status()["targets"] if item["deployment"] == discovered_id)
+        assert target["routing_state"] == "unrouted"
+        assert target["routing_conflicts"] == [{"name": "coding", "model": "assistant"}]
+        assert client._request("GET", "/v1/config/managed-sets/operator")["document"] == operator
+
+        # User correction: publish that deployment under a different name.
+        corrected = deepcopy(operator)
+        corrected["virtual_models"].append(
+            {"name": "corrected-coding", "pools": [{"targets": [{"deployment": discovered_id, "weight": 1}]}]}
+        )
+        client._request(
+            "PUT", "/v1/config/managed-sets/operator", {"document": corrected, "expected_active_revision": client.active_revision()}
+        )
+        engine.reconcile(reason="preserve user correction")
+        assert not engine.discovery_warnings()
+        target = next(item for item in client.status()["targets"] if item["deployment"] == discovered_id)
+        assert target["routing_state"] == "routed" and not target.get("routing_conflicts")
+        assert "corrected-coding" in target["model_names"]
+        # Losing the workload cannot break the saved operator reference.
+        config.discovered_models = []
+        engine.reconcile(reason="workload stopped")
+        assert discovered_id in {entry["name"] for entry in client.get_set()["document"]["deployments"]}
+        # Removing the reference allows a later sweep to remove its deployment.
+        client._request(
+            "PUT", "/v1/config/managed-sets/operator", {"document": operator, "expected_active_revision": client.active_revision()}
+        )
+        engine.reconcile(reason="remove unreferenced stopped deployment")
+        assert client.get_set()["document"]["deployments"] == []
         catalog = _json(
             engine.admin_url + "/v1/sparkrun/catalog",
             {"operation": "catalog_clusters", "arguments": {}},
