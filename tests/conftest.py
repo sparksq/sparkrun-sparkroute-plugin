@@ -93,6 +93,9 @@ def managed_plugin(tmp_path, monkeypatch):
     from sparkrun.core.plugin_manifest import read_manifest
     from sparkrun.core.plugin_sources import PluginCandidate
 
+    own_plugins = ROOT / "src/sparkrun/plugins"
+    if any((Path(p) / "sparkroute/__init__.py").is_file() for p in sparkrun.plugins.__path__ if Path(p).resolve() != own_plugins):
+        pytest.skip("the host carries SparkRoute in-tree (dev.sh/CI assembly); a managed copy cannot coexist with it")
     monkeypatch.delenv("SPARKRUN_NO_EXTERNAL_PLUGINS", raising=False)
     monkeypatch.setenv("SPARKRUN_FEATURE_GATEWAY_SPARKROUTE", "1")
     monkeypatch.setenv("SPARKRUN_CACHE_DIR", str(tmp_path / "cache"))

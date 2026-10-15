@@ -34,34 +34,6 @@ _IGNORED_NAMES = {
     ".slop",
     "__pycache__",
 }
-_FEATURE_PATTERN = re.compile(r"name\s*=\s*['\"]gateway\.sparkroute['\"]")
-_BINDING_PATTERN = re.compile(
-    r"(?:['\"]sparkroute['\"]\s*:|IN_TREE_PLUGIN_FEATURES\s*\[\s*['\"]sparkroute['\"]\s*\]\s*=)"
-    r"\s*['\"]gateway\.sparkroute['\"]"
-)
-
-_FEATURE_BINDING = """
-
-# BEGIN sparkrun-sparkroute development binding
-# Added only to the disposable tree assembled by the plugin's dev.sh. The
-# selected upstream checkout is never modified.
-FEATURE_PLUGIN_SPARKROUTE = register_feature(
-    FeatureFlag(
-        name="gateway.sparkroute",
-        description="SparkRoute gateway integration and workload bridge",
-        default=False,
-    )
-)
-# END sparkrun-sparkroute development binding
-"""
-
-_LOADER_BINDING = """
-
-# BEGIN sparkrun-sparkroute development binding
-# Added only to the disposable tree assembled by the plugin's dev.sh.
-IN_TREE_PLUGIN_FEATURES["sparkroute"] = "gateway.sparkroute"
-# END sparkrun-sparkroute development binding
-"""
 
 
 class AssemblyError(RuntimeError):
@@ -138,6 +110,7 @@ def assemble(*, host: Path, plugin_root: Path, destination: Path, copy_plugin: b
         host / "src/sparkrun/__init__.py",
         host / FEATURES_PATH,
         host / IN_TREE_PLUGINS_PATH,
+        host / "src/sparkrun/core/plugin_policy.py",
         host / "src/sparkrun/core/application_profile.py",
         host / "src/sparkrun/proxy/contracts.py",
         host / "src/sparkrun/proxy/supervisor.py",
@@ -205,8 +178,10 @@ def assemble(*, host: Path, plugin_root: Path, destination: Path, copy_plugin: b
                 re.compile(r'[\'"]coldsnap[\'"]\s*[:\]]'),
                 '\nIN_TREE_PLUGIN_FEATURES["coldsnap"] = "plugins.coldsnap"\n',
             )
-        _append_if_missing(temporary / FEATURES_PATH, _FEATURE_PATTERN, _FEATURE_BINDING)
-        _append_if_missing(temporary / IN_TREE_PLUGINS_PATH, _BINDING_PATTERN, _LOADER_BINDING)
+
+        # SparkRoute needs no host binding: a 0.4 host lists it in
+        # plugin_policy.KNOWN_PLUGINS and the plugin declares gateway.sparkroute
+        # itself. A core-registered copy of the flag makes the host refuse it.
 
         _remove_path(destination)
         temporary.rename(destination)

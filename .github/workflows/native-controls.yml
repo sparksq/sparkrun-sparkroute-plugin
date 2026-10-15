@@ -39,7 +39,7 @@ jobs:
       - name: Assemble the pinned host
         run: python scripts/prepare-ci-host.py
       - name: Install host and plugin
-        run: uv pip install --system -e .dev/sparkrun-with-sparkroute -e . --group dev
+        run: uv pip install --system -e .dev/ci-sparkrun -e . --group dev
       - name: Read pinned gateway source
         id: gateway
         shell: bash
@@ -63,4 +63,6 @@ jobs:
       - name: Build the pinned OSS gateway
         run: python scripts/prepare-ci-gateway.py --source .dev/ci-gateway
       - name: Qualify process probes and the real gateway integration
-        run: python -m pytest -v tests/test_sparkroute_live.py tests/test_sparkroute_jobs.py .dev/sparkrun-with-sparkroute/tests/test_process_probe.py .dev/sparkrun-with-sparkroute/tests/test_api_catalog.py
+        env:
+          SPARKRUN_CHECKOUT: .dev/ci-sparkrun
+        run: python -m pytest -v tests/test_sparkroute_live.py tests/test_sparkroute_jobs.py .dev/ci-sparkrun/tests/test_process_probe.py .dev/ci-sparkrun/tests/test_api_catalog.py

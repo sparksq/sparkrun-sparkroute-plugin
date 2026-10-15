@@ -23,8 +23,8 @@ ci:
   only_workflows: [version-check, test-python]
   python:
     test_versions: ["3.12", "3.13"]
-    install: python scripts/prepare-ci-host.py && uv pip install --system -e .dev/sparkrun-with-sparkroute -e . --group dev
-    test_command: python -m pytest -v
+    install: python scripts/prepare-ci-host.py && uv pip install --system -e .dev/ci-sparkrun -e . --group dev
+    test_command: SPARKRUN_CHECKOUT=.dev/ci-sparkrun python -m pytest -v
     extra_steps:
       - name: Verify versions are in sync
         run: python scripts/update-versions.py --check

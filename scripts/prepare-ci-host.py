@@ -3,12 +3,16 @@
 # SPDX-FileCopyrightText: 2026 Fox Engine Ltd
 # SPDX-License-Identifier: AGPL-3.0-only
 
-"""Prepare a commit-pinned host for the integration's source-development CI."""
+"""Check out the commit-pinned sparkrun host for CI.
+
+CI runs against this stock host with the plugin installed beside it, the way
+users get it. The dev.sh assembly puts SparkRoute in-tree instead, where the
+host refuses the managed install the gateway integration tests depend on.
+"""
 
 from __future__ import annotations
 
 import subprocess
-import sys
 import tomllib
 from pathlib import Path
 
@@ -27,11 +31,6 @@ def main() -> None:
     actual = subprocess.check_output(["git", "-C", str(checkout), "rev-parse", "HEAD"], text=True).strip()
     if actual != pin["commit"]:
         raise SystemExit("CI host commit differs from the configured pin")
-    subprocess.run(
-        [sys.executable, str(ROOT / "scripts/assemble-dev-host.py"), "--host", str(checkout),
-         "--destination", str(ROOT / ".dev/sparkrun-with-sparkroute")],
-        check=True,
-    )
 
 
 if __name__ == "__main__":

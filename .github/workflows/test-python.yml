@@ -49,11 +49,11 @@ jobs:
         working-directory: .
 
       - name: Install
-        run: python scripts/prepare-ci-host.py && uv pip install --system -e .dev/sparkrun-with-sparkroute -e . --group dev
+        run: python scripts/prepare-ci-host.py && uv pip install --system -e .dev/ci-sparkrun -e . --group dev
         working-directory: .
 
       - name: Run tests
-        run: python -m pytest -v
+        run: SPARKRUN_CHECKOUT=.dev/ci-sparkrun python -m pytest -v
         working-directory: .
 
       - name: Verify versions are in sync

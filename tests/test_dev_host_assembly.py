@@ -23,7 +23,7 @@ def _isolate_coldsnap_settings(monkeypatch):
         monkeypatch.delenv(name, raising=False)
 
 
-def _write_host(host: Path, *, integrated: bool = False) -> None:
+def _write_host(host: Path) -> None:
     core = host / "src" / "sparkrun" / "core"
     plugins = host / "src" / "sparkrun" / "plugins"
     core.mkdir(parents=True)
@@ -31,22 +31,13 @@ def _write_host(host: Path, *, integrated: bool = False) -> None:
     proxy = host / "src/sparkrun/proxy"
     proxy.mkdir()
     (core / "application_profile.py").write_text("", encoding="utf-8")
+    (core / "plugin_policy.py").write_text("", encoding="utf-8")
     (proxy / "contracts.py").write_text("", encoding="utf-8")
     (proxy / "supervisor.py").write_text("", encoding="utf-8")
     (host / "pyproject.toml").write_text("[project]\nname = 'sparkrun'\n", encoding="utf-8")
     (host / "src" / "sparkrun" / "__init__.py").write_text("", encoding="utf-8")
-    feature = (
-        'FEATURE_PLUGIN_SPARKROUTE = register_feature(FeatureFlag(name="gateway.sparkroute", default=True))\n'
-        if integrated
-        else "FEATURE_EXISTING = object()\n"
-    )
-    mapping = (
-        'IN_TREE_PLUGIN_FEATURES: dict[str, str] = {"sparkroute": "gateway.sparkroute"}\n'
-        if integrated
-        else "IN_TREE_PLUGIN_FEATURES: dict[str, str] = {}\n"
-    )
-    (core / "features.py").write_text(feature, encoding="utf-8")
-    (core / "in_tree_plugins.py").write_text(mapping, encoding="utf-8")
+    (core / "features.py").write_text("FEATURE_EXISTING = object()\n", encoding="utf-8")
+    (core / "in_tree_plugins.py").write_text("IN_TREE_PLUGIN_FEATURES: dict[str, str] = {}\n", encoding="utf-8")
 
 
 def _write_plugin(plugin: Path) -> None:
@@ -76,7 +67,7 @@ def _assemble(host: Path, plugin: Path, *, copy_plugin: bool = False) -> subproc
     )
 
 
-def test_assembly_links_live_source_and_adds_only_disposable_bindings(tmp_path: Path):
+def test_assembly_links_live_source_without_rewriting_the_host(tmp_path: Path):
     host = tmp_path / "host"
     plugin = tmp_path / "plugin"
     _write_host(host)
@@ -93,33 +84,15 @@ def test_assembly_links_live_source_and_adds_only_disposable_bindings(tmp_path: 
     assert linked.is_symlink()
     assert linked.resolve() == (plugin / "src/sparkrun/plugins/sparkroute").resolve()
     assert (assembled / "local-host-change.txt").read_text(encoding="utf-8") == "preserved\n"
-    assert 'name="gateway.sparkroute"' in (assembled / "src/sparkrun/core/features.py").read_text(encoding="utf-8")
-    assert 'IN_TREE_PLUGIN_FEATURES["sparkroute"] = "gateway.sparkroute"' in (assembled / "src/sparkrun/core/in_tree_plugins.py").read_text(
-        encoding="utf-8"
-    )
+    # The plugin declares gateway.sparkroute itself; a core-registered copy
+    # makes a 0.4 host refuse to load it.
+    assert (assembled / "src/sparkrun/core/features.py").read_text(encoding="utf-8") == original_features
+    assert (assembled / "src/sparkrun/core/in_tree_plugins.py").read_text(encoding="utf-8") == original_loader
     assert (host / "src/sparkrun/core/features.py").read_text(encoding="utf-8") == original_features
     assert (host / "src/sparkrun/core/in_tree_plugins.py").read_text(encoding="utf-8") == original_loader
 
 
-def test_assembly_does_not_duplicate_an_upstream_binding(tmp_path: Path):
-    host = tmp_path / "host"
-    plugin = tmp_path / "plugin"
-    _write_host(host, integrated=True)
-    _write_plugin(plugin)
-
-    result = _assemble(host, plugin)
-
-    assert result.returncode == 0, result.stdout + result.stderr
-    assembled = plugin / ".dev" / "sparkrun-with-sparkroute"
-    features = (assembled / "src/sparkrun/core/features.py").read_text(encoding="utf-8")
-    loader = (assembled / "src/sparkrun/core/in_tree_plugins.py").read_text(encoding="utf-8")
-    assert features.count("gateway.sparkroute") == 1
-    assert loader.count("gateway.sparkroute") == 1
-    assert "BEGIN sparkrun-sparkroute development binding" not in features
-    assert "BEGIN sparkrun-sparkroute development binding" not in loader
-
-
-@pytest.mark.parametrize("missing", ["core/application_profile.py", "proxy/contracts.py", "proxy/supervisor.py"])
+@pytest.mark.parametrize("missing", ["core/application_profile.py", "core/plugin_policy.py", "proxy/contracts.py", "proxy/supervisor.py"])
 def test_incompatible_host_preserves_previous_assembly(tmp_path: Path, missing: str):
     host, plugin = tmp_path / "host", tmp_path / "plugin"
     _write_host(host)

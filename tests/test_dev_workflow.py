@@ -41,6 +41,7 @@ def _checkout(path: Path) -> None:
     (path / "src/sparkrun/api/_catalog.py").write_text("def catalog_cluster_capacity(): pass\n")
     (path / "src/sparkrun/core").mkdir()
     (path / "src/sparkrun/core/application_profile.py").touch()
+    (path / "src/sparkrun/core/plugin_policy.py").touch()
     (path / "src/sparkrun/proxy").mkdir()
     (path / "src/sparkrun/proxy/contracts.py").touch()
     (path / "src/sparkrun/proxy/supervisor.py").touch()
